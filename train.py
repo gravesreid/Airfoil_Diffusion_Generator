@@ -49,5 +49,5 @@ plot_clcd_comparison('clcd_data/', 'vae_recon_eval/')
 conditioned_dataset = ConditionedAirfoilDataset(path='vae_reconstructed/', eval_path='vae_recon_eval/')
 conditioned_dataloader = DataLoader(conditioned_dataset, batch_size=16, shuffle=True)
 
-diffusion_model = train_diffusion(conditioned_dataloader, device, lr=0.01, epochs = 500, log_freq=50)
-
+diffusion_model, diffusion_loss = train_diffusion(conditioned_dataloader, vae, device, lr=0.01, epochs = 500, log_freq=10)
+plot_losses(diffusion_loss)

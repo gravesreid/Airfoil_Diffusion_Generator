@@ -215,6 +215,7 @@ def neural_foil_eval(path, clcd_path, alpha=0, Re=2e6, mach=0.2):
     max_cl_name = ''
     max_cd = 0
     max_cd_name = ''
+    unrealistic_airfoils = []
     
     # Iterate over each file
     for filename in files:
@@ -297,13 +298,13 @@ def plot_clcd_comparison(clcd_path_1, clcd_path_2):
     # Plot the Cl/Cd percent error
     plt.figure(figsize=(16, 6))
     plt.subplot(1, 2, 1)
-    plt.scatter(common_files, CL_err)
+    plt.scatter(indices, CL_err)
     plt.xlabel('Index')
     plt.ylabel('Percent Error (%)')
     plt.title('CL Percent Error')
     
     plt.subplot(1, 2, 2)
-    plt.scatter(common_files, CD_err)
+    plt.scatter(indices, CD_err)
     plt.xlabel('Index')
     plt.ylabel('Percent Error (%)')
     plt.title('CD Percent Error')
@@ -352,7 +353,7 @@ def train_vae(device, dataset, dataloader, num_epochs=200, learning_rate=0.001, 
 
     return total_losses, vae, airfoil_x
 
-def train_diffusion(conditioned_dataloader, device, lr=0.01, epochs=500, log_freq=50):
+def train_diffusion(conditioned_dataloader, vae, device, lr=0.01, epochs=500, log_freq=50):
     """
     Trains a diffusion model on conditioned airfoil data.
 
@@ -380,9 +381,13 @@ def train_diffusion(conditioned_dataloader, device, lr=0.01, epochs=500, log_fre
         epoch_loss = 0
         for _,data, cl_cd in conditioned_dataloader:
             data = data.to(device)
+            mu, sigma = vae.enc(data)
+            mu, sigma = mu.to(device), sigma.to(device)
             cl_cd = cl_cd.to(device)
-            pred = model(data)
-            loss = loss_fn(pred, cl_cd)
+            latent_vector = mu + sigma * (2*torch.randn_like(mu, device=device) - 1)
+            noise = torch.randn_like(mu, device=device)
+            pred = model(latent_vector, noise, cl_cd)
+            loss = loss_fn(pred, noise)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
