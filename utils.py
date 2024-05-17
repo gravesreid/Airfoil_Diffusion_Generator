@@ -376,6 +376,7 @@ def train_diffusion(conditioned_dataloader, vae, device, lr=0.01, epochs=500, lo
     loss_fn = nn.L1Loss()
 
     # Training loop
+    total_losses = []
     for i in range(epochs):
         model.train()
         epoch_loss = 0
@@ -392,13 +393,15 @@ def train_diffusion(conditioned_dataloader, vae, device, lr=0.01, epochs=500, lo
             loss.backward()
             optimizer.step()
             epoch_loss += loss.detach().cpu().item()
+
         
         epoch_loss /= len(conditioned_dataloader)
+        total_losses.append(epoch_loss)
         scheduler.step(epoch_loss)
 
         if i % log_freq == 0 or i == epochs - 1:
             print(f"Epoch {i} loss: {epoch_loss:.4f}, learning rate: {optimizer.param_groups[0]['lr']:.6f}")
-    return model
+    return model, total_losses
 
 
 

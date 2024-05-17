@@ -19,6 +19,8 @@ vae_dataloader = DataLoader(vae_dataset, batch_size=16, shuffle=True)
 # train vae
 total_losses, vae, airfoil_x = train_vae(device, vae_dataset, vae_dataloader, num_epochs=200, learning_rate=0.001, beta_start=0.0, beta_end=0.01)
 
+# save vae model
+torch.save(vae.state_dict(), 'vae.pth')
 # Plot losses
 plot_losses(total_losses)
 
@@ -50,4 +52,6 @@ conditioned_dataset = ConditionedAirfoilDataset(path='vae_reconstructed/', eval_
 conditioned_dataloader = DataLoader(conditioned_dataset, batch_size=16, shuffle=True)
 
 diffusion_model, diffusion_loss = train_diffusion(conditioned_dataloader, vae, device, lr=0.01, epochs = 500, log_freq=10)
+# save diffusion model
+torch.save(diffusion_model.state_dict(), 'diffusion.pth')
 plot_losses(diffusion_loss)
