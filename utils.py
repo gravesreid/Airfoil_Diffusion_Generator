@@ -1,9 +1,13 @@
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
+from scipy.interpolate import splprep, splev
 import torch
 import numpy as np
 from sklearn.manifold import TSNE
 from sklearn.neighbors import NearestNeighbors
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 import subprocess
 import os
 import logging
@@ -14,6 +18,9 @@ import torch.nn as nn
 import aerosandbox as asb
 import neuralfoil as nf
 import os
+import pandas as pd
+
+
 
 from models import *
 
@@ -84,6 +91,70 @@ def plot_all_airfoils(dataset, vae, num_samples=128, latent_dim=32, device='cpu'
     plot_airfoils(airfoil_x, recon_airfoils, title="Reconstructed Airfoils")
     plot_airfoils(airfoil_x, gen_airfoils, title="Synthesized Airfoils")
 
+def aggregate_and_cluster(vae, data_loader, n_clusters=10, device='cpu', perplexity=30, n_iter=5000):
+    mu_list = []
+    for _, data in data_loader:
+        data = data.to(device)
+        with torch.no_grad():
+            mu, _ = vae.enc(data)
+            mu_list.append(mu)
+
+    mu_tensor = torch.cat(mu_list, dim=0)
+    mu_tensor = mu_tensor.view(mu_tensor.size(0), -1)
+
+    # Standardize the data using tensors
+    scaler = StandardScaler()
+    mu_tensor_scaled = torch.tensor(scaler.fit_transform(mu_tensor.cpu()), device=device)
+
+    # Apply PCA for dimensionality reduction
+    pca = PCA(n_components=0.95)
+    mu_tensor_pca = torch.tensor(pca.fit_transform(mu_tensor_scaled.cpu()), device=device)
+
+    # Perform K-Means clustering
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+    kmeans.fit(mu_tensor_pca.cpu().numpy())
+    labels = kmeans.labels_
+    centroids = kmeans.cluster_centers_
+
+    # t-SNE for visualization
+    tsne = TSNE(n_components=2, random_state=42, n_iter=n_iter, perplexity=perplexity)
+    mu_tsne = tsne.fit_transform(mu_tensor_pca.cpu().numpy())
+    closest_points_indices = [np.argmin(np.linalg.norm(mu_tensor_pca.cpu().numpy() - centroid, axis=1)) for centroid in centroids]
+    centroids_tsne = mu_tsne[closest_points_indices]
+
+    plt.figure(figsize=(10, 6))
+    scatter = plt.scatter(mu_tsne[:, 0], mu_tsne[:, 1], c=labels, cmap='tab20', alpha=0.5, label='Data points')
+    
+    # Plot and label each centroid
+    for i, centroid in enumerate(centroids_tsne):
+        plt.scatter(centroid[0], centroid[1], c='red', marker='X', s=100, label=f'Cluster center {i + 1}')
+
+    handles, _ = scatter.legend_elements()
+    legend_labels = [f'Cluster {i}' for i in range(n_clusters)]
+    legend_labels.append('Cluster centers')
+    
+    # Add legend for cluster centers
+    handles.append(plt.Line2D([0], [0], marker='X', color='w', markerfacecolor='red', markersize=10))
+    
+    plt.legend(handles, legend_labels, loc='upper center', bbox_to_anchor=(1.15, 1))
+    plt.title('Latent Space Visualization using PCA, t-SNE, and K-Means')
+    plt.xlabel('t-SNE Dimension 1')
+    plt.ylabel('t-SNE Dimension 2')
+    plt.grid(True)
+    plt.tight_layout(rect=[0, 0, 0.85, 1])
+    plt.show()
+
+    return mu_tensor_pca, mu_tsne, labels, centroids_tsne
+
+
+
+def find_interpolated_vector_kmeans(centroids, point, device='cpu'):
+    distances = np.linalg.norm(centroids - point, axis=1)
+    weights = 1 / distances
+    interpolated_vector = np.average(centroids, axis=0, weights=weights)
+    interpolated_vector_tensor = torch.tensor(interpolated_vector, dtype=torch.float32).to(device)
+    
+    return interpolated_vector_tensor
 
 def visualize_latent_space(vae, data_loader, n_iter = 5000, perplexity = 100, device = 'cpu'):
     mu_list = []
@@ -123,36 +194,55 @@ def find_interpolated_vector(t_sne_output, latent_vectors, point, k=5, device='c
     
     return interpolated_vector_tensor
 
-def plot_latent_space_airfoils(vae, airfoil_x, mu_tensor, t_sne_output, device, grid_points):
+def plot_latent_space_airfoils(vae, airfoil_x, centroids, device):
     """
-    Plots a grid of airfoils corresponding to specified points in the latent space t-SNE output.
+    Plots airfoils corresponding to centroid points in the latent space.
 
     Parameters:
         vae (nn.Module): Trained VAE model.
         airfoil_x (Tensor): X coordinates for airfoil plotting.
-        mu_tensor (Tensor): Tensor of latent vectors from the VAE encoder.
-        t_sne_output (np.array): t-SNE reduced latent vectors.
+        centroids (np.array): Centroid points from the clustering.
         device (str): Computation device ('cpu' or 'cuda').
-        grid_points (list of lists): Points in the latent space to plot ([x, y] pairs).
     """
-    fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(16, 8))  # Set up a 3x3 grid
-    fig.suptitle('Airfoils from Selected Latent Space Points', fontsize=16)
+    num_centroids = centroids.shape[0]
+    nrows = (num_centroids + 2) // 3
+    fig, axes = plt.subplots(nrows=nrows, ncols=3, figsize=(16, 8))  # Adjust grid size as needed
+    fig.suptitle('Airfoils from Centroid Points in Latent Space', fontsize=16)
 
-    # Iterate over the grid and plot airfoils
-    for ax, point in zip(axes.flat, grid_points):
-        interpolated_vector = find_interpolated_vector(t_sne_output, mu_tensor, point, device=device)
-        decoder_output = vae.decode(interpolated_vector).detach().cpu().numpy()
+    # Ensure axes is always a 2D array for easy iteration
+    if nrows == 1:
+        axes = np.expand_dims(axes, 0)
+    if num_centroids < 3:
+        axes = np.expand_dims(axes, 1)
+    
+    axes = axes.flatten()
 
-        # Ensure correct format for plotting
-        if isinstance(decoder_output, torch.Tensor):
-            decoder_output = decoder_output.numpy()
+    # Iterate over the centroids and plot airfoils
+    for i, (ax, centroid) in enumerate(zip(axes, centroids)):
+        centroid_tensor = torch.tensor(centroid, dtype=torch.float32).to(device)
+        
+        # Ensure the centroid tensor has the correct shape
+        if centroid_tensor.dim() == 1:
+            centroid_tensor = centroid_tensor.unsqueeze(0)
+        
+        with torch.no_grad():
+            decoder_output = vae.decode(centroid_tensor).cpu().numpy().flatten()
 
         ax.scatter(airfoil_x, decoder_output, s=0.6, c='black')
         ax.axis('off')
         ax.axis('equal')
-        ax.set_title(f"Point: {point}")
+        ax.set_title(f"Centroid {i + 1}")
 
+    # Hide any remaining empty subplots
+    for j in range(i + 1, len(axes)):
+        fig.delaxes(axes[j])
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.show()
+
+# Example usage assuming you have `vae`, `airfoil_x`, `centroids`, and `device` variables
+# plot_latent_space_airfoils(vae, airfoil_x, centroids_tsne, device)
+
 
 def save_vae_reconstructions(dataset, vae, device, output_dir='vae_reconstructed'):
     """
@@ -230,6 +320,11 @@ def neural_foil_eval(path, clcd_path, alpha=0, Re=2e6, mach=0.2):
             )
             cl = coef['CL'][0]
             cd = coef['CD'][0]
+            #if cd > 1.0 or cl < 0.0 or cl > 4.0:
+            #    unrealistic_airfoils.append(filename)
+            #    os.remove(os.path.join(path, filename))
+            #    print(f"Removed {filename} due to unrealistic aerodynamic coefficients")
+            #    continue
             if cl > max_cl:
                 max_cl = cl
                 max_cl_name = filename
@@ -250,6 +345,7 @@ def neural_foil_eval(path, clcd_path, alpha=0, Re=2e6, mach=0.2):
     print(f'Processed {files_processed} files')
     print(f'Max CL: {max_cl} for {max_cl_name}')
     print(f'Max CD: {max_cd} for {max_cd_name}')
+    print(f'Unrealistic airfoils: {unrealistic_airfoils}')
 
 
 def plot_clcd_comparison(clcd_path_1, clcd_path_2):
@@ -311,37 +407,86 @@ def plot_clcd_comparison(clcd_path_1, clcd_path_2):
 
     plt.show()
 
+def get_coeff_from_coordinates(dataset, coordinates, alpha=0, Re=2e6, model_size="xxxlarge"):
+    """
+    Get the aerodynamic coefficients from a set of coordinates.
+    
+    Parameters:
+        coordinates (np.array): Array of coordinates (x, y).
+        alpha (float): Angle of attack in degrees.
+        Re (float): Reynolds number.
+        model_size (str): Model size for the neural network.
+    
+    Returns:
+        dict: Dictionary containing the aerodynamic coefficients CL and CD.
+    """
+    # get x coordinates
+    airfoil_x = dataset.get_x()
+    # Convert to tensor
+    coordinates = torch.tensor(coordinates, dtype=torch.float32)
+    coordinates = torch.stack([airfoil_x, coordinates.squeeze()]).T.detach().cpu().numpy()
+    #print(f"Coordinates shape: {coordinates.shape}")
+    
+    # Evaluate the neural network
+    coef = nf.get_aero_from_coordinates(
+        coordinates=coordinates,
+        alpha=alpha,
+        Re=Re,
+        model_size=model_size,
+    )
+    
+    return coef
+
 def train_vae(device, dataset, dataloader, num_epochs=200, learning_rate=0.001, beta_start=0.0, beta_end=0.01):
 
     # Get dataset dimensions
     airfoil_x = dataset.get_x()  # Used for plotting later
     airfoil_dim = airfoil_x.shape[0]
+    # latent dim was initially 32 from GAN paper
     latent_dim = 32
 
     # Initialize the model
     vae = VAE(airfoil_dim, latent_dim).to(device)
 
     # Define loss function
-    def loss_function(recon_x, x, mu, logvar, beta=1.0):
-        MSE = nn.functional.mse_loss(recon_x, x, reduction='sum')
+    def loss_function(recon_y, y, mu, logvar, beta=1.0):
+        MAE = nn.functional.l1_loss(recon_y, y, reduction='sum')
+        #MSE = nn.functional.mse_loss(recon_y, y, reduction='sum')
         KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-        return MSE + beta * KLD
+        #clcd_loss = nn.functional.mse_loss(recon_clcd, clcd, reduction='sum')
+        return MAE + beta * KLD 
 
     # Optimizer and Scheduler
     optim = Adam(vae.parameters(), lr=learning_rate)
-    scheduler = ReduceLROnPlateau(optim, 'min', factor=0.75, patience=20, verbose=True)
+    scheduler = ReduceLROnPlateau(optim, 'min', factor=0.97, patience=100, verbose=True)
 
     # Beta scheduling
-    beta_increment = (beta_end - beta_start) / num_epochs
+    beta_increment = ((beta_end - beta_start) / num_epochs)*2
 
     # Training loop
     total_losses = []
     for epoch in range(num_epochs):
         epoch_losses = []
-        current_beta = beta_start + beta_increment * epoch
+        if epoch <= int(num_epochs/2):
+            current_beta = beta_start + beta_increment * epoch
         for _,local_batch in dataloader:
             y_real = local_batch.to(device)
+
+        #    # neurolfoil eval for real airfoils
+        #    cl_cd_real = []
+        #    for i in range(y_real.shape[0]):
+        #        real_coef = get_coeff_from_coordinates(dataset, y_real[i].detach().cpu().numpy())
+        #        cl_cd_real.append([real_coef["CL"][0], real_coef["CD"][0]])
+        #        print(f'CL: {np.float32(real_coef["CL"][0]):.4f}, CD: {np.float32(real_coef["CD"][0]):.4f}')
             recon_y, mu, logvar = vae(y_real)
+
+            # neuralfoil eval for reconstructed airfoils
+          #  cl_cd_recon = []
+          #  for i in range(recon_y.shape[0]):
+          #      recon_coef = get_coeff_from_coordinates(dataset, recon_y[i].detach().cpu().numpy())
+          #      cl_cd_recon.append([recon_coef["CL"][0], recon_coef["CD"][0]])
+          #      print(f'CL: {np.float32(recon_coef["CL"][0]):.4f}, CD: {np.float32(recon_coef["CD"][0]):.4f}')
+
             loss = loss_function(recon_y, y_real, mu, logvar, beta=current_beta)
             optim.zero_grad()
             loss.backward()
@@ -349,7 +494,7 @@ def train_vae(device, dataset, dataloader, num_epochs=200, learning_rate=0.001, 
             epoch_losses.append(loss.item())
         scheduler.step(sum(epoch_losses) / len(epoch_losses))
         total_losses.append(sum(epoch_losses) / len(epoch_losses))
-        print(f'Epoch {epoch+1}: Total Loss: {total_losses[-1]:.4f}, Learning Rate: {optim.param_groups[0]["lr"]:.6f}')
+        print(f'Epoch {epoch+1}: Epoch Loss: {epoch_losses[-1]:.4f} Total Loss: {total_losses[-1]:.4f}, Learning Rate: {optim.param_groups[0]["lr"]:.6f}')
 
     return total_losses, vae, airfoil_x
 

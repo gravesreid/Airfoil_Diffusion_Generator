@@ -14,10 +14,11 @@ print(f"Using device: {device}")
 
 # Load vae training dataset
 vae_dataset = AirfoilDataset(path='aero_sandbox_processed/')
-vae_dataloader = DataLoader(vae_dataset, batch_size=16, shuffle=True)
+vae_dataloader = DataLoader(vae_dataset, batch_size=128, shuffle=True)
 
 # train vae
-total_losses, vae, airfoil_x = train_vae(device, vae_dataset, vae_dataloader, num_epochs=200, learning_rate=0.001, beta_start=0.0, beta_end=0.01)
+#beta was annealed from 0 to 0.001 over 1000 epochs to get better reconstructions
+total_losses, vae, airfoil_x = train_vae(device, vae_dataset, vae_dataloader, num_epochs=2000, learning_rate=0.01, beta_start=0.001, beta_end=.5)
 
 # save vae model
 torch.save(vae.state_dict(), 'vae.pth')
@@ -28,11 +29,10 @@ plot_losses(total_losses)
 plot_all_airfoils(vae_dataset, vae, num_samples=16, latent_dim=32, device=device)
 
 # visualize latent space
-grid_points = [[-4, -4], [-4, 0], [-4, 4], [0, -4], [0, 0], [0, 4], [4, -4], [4, 0], [4, 4]]
-mu_tensor, t_sne_output = visualize_latent_space(vae, vae_dataloader, n_iter=5000, perplexity = 500, device=device)
-plot_latent_space_airfoils(vae, vae_dataset.get_x(), mu_tensor, t_sne_output, device, grid_points)
+mu_pca, mu_tsne, labels, centroids_tsne = aggregate_and_cluster(vae, vae_dataloader, n_clusters=9, device=device, perplexity=30, n_iter=5000)
+plot_latent_space_airfoils(vae, vae_dataset, centroids_tsne, device=device)
 
-# save vae recontstructions
+    # save vae recontstructions
 save_vae_reconstructions(vae_dataset, vae, device, output_dir='vae_reconstructed/')
 
 # reparameterize reconstructions
