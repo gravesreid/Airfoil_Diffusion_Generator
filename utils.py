@@ -8,6 +8,7 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from sklearn_extra.cluster import KMedoids
 import subprocess
 import os
 import logging
@@ -19,7 +20,7 @@ import aerosandbox as asb
 import neuralfoil as nf
 import os
 import pandas as pd
-
+import random
 
 
 from models import *
@@ -91,18 +92,24 @@ def plot_all_airfoils(dataset, vae, num_samples=128, latent_dim=32, device='cpu'
     plot_airfoils(airfoil_x, recon_airfoils, title="Reconstructed Airfoils")
     plot_airfoils(airfoil_x, gen_airfoils, title="Synthesized Airfoils")
 
+
 def aggregate_and_cluster(vae, data_loader, n_clusters=10, device='cpu', perplexity=30, n_iter=5000):
     mu_list = []
+    original_airfoils = []
     for _, data in data_loader:
         data = data.to(device)
         with torch.no_grad():
             mu, _ = vae.enc(data)
             mu_list.append(mu)
+            original_airfoils.append(data.cpu())
 
+    # Concatenate all latent vectors and original airfoils into single tensors
     mu_tensor = torch.cat(mu_list, dim=0)
     mu_tensor = mu_tensor.view(mu_tensor.size(0), -1)
+    print(f"mu_tensor shape: {mu_tensor.shape}")
+    original_airfoils = torch.cat(original_airfoils, dim=0)
 
-    # Standardize the data using tensors
+    # Standardize the data
     scaler = StandardScaler()
     mu_tensor_scaled = torch.tensor(scaler.fit_transform(mu_tensor.cpu()), device=device)
 
@@ -110,7 +117,7 @@ def aggregate_and_cluster(vae, data_loader, n_clusters=10, device='cpu', perplex
     pca = PCA(n_components=0.95)
     mu_tensor_pca = torch.tensor(pca.fit_transform(mu_tensor_scaled.cpu()), device=device)
 
-    # Perform K-Means clustering
+    # Perform K-Means clustering on the PCA-reduced data
     kmeans = KMeans(n_clusters=n_clusters, random_state=42)
     kmeans.fit(mu_tensor_pca.cpu().numpy())
     labels = kmeans.labels_
@@ -119,21 +126,22 @@ def aggregate_and_cluster(vae, data_loader, n_clusters=10, device='cpu', perplex
     # t-SNE for visualization
     tsne = TSNE(n_components=2, random_state=42, n_iter=n_iter, perplexity=perplexity)
     mu_tsne = tsne.fit_transform(mu_tensor_pca.cpu().numpy())
+
+    # Find the original latent vectors corresponding to the cluster centers
     closest_points_indices = [np.argmin(np.linalg.norm(mu_tensor_pca.cpu().numpy() - centroid, axis=1)) for centroid in centroids]
     centroids_tsne = mu_tsne[closest_points_indices]
 
-    plt.figure(figsize=(10, 6))
+    # Plotting
+    plt.figure(figsize=(12, 7))
     scatter = plt.scatter(mu_tsne[:, 0], mu_tsne[:, 1], c=labels, cmap='tab20', alpha=0.5, label='Data points')
     
-    # Plot and label each centroid
     for i, centroid in enumerate(centroids_tsne):
-        plt.scatter(centroid[0], centroid[1], c='red', marker='X', s=100, label=f'Cluster center {i + 1}')
+        plt.scatter(centroid[0], centroid[1], c='red', marker='X', s=50, label=f'Cluster center {i + 1}')
 
     handles, _ = scatter.legend_elements()
     legend_labels = [f'Cluster {i}' for i in range(n_clusters)]
     legend_labels.append('Cluster centers')
     
-    # Add legend for cluster centers
     handles.append(plt.Line2D([0], [0], marker='X', color='w', markerfacecolor='red', markersize=10))
     
     plt.legend(handles, legend_labels, loc='upper center', bbox_to_anchor=(1.15, 1))
@@ -144,107 +152,18 @@ def aggregate_and_cluster(vae, data_loader, n_clusters=10, device='cpu', perplex
     plt.tight_layout(rect=[0, 0, 0.85, 1])
     plt.show()
 
+    # Plot cluster center airfoils
+    airfoil_x = data_loader.dataset.get_x()  # Assuming this returns the common x-coordinates
+    for i, idx in enumerate(closest_points_indices):
+        airfoil_y = original_airfoils[idx].numpy().reshape(-1)
+        plot_airfoil(airfoil_x, airfoil_y, title=f'Cluster Center {i + 1} Airfoil')
+
     return mu_tensor_pca, mu_tsne, labels, centroids_tsne
 
 
 
-def find_interpolated_vector_kmeans(centroids, point, device='cpu'):
-    distances = np.linalg.norm(centroids - point, axis=1)
-    weights = 1 / distances
-    interpolated_vector = np.average(centroids, axis=0, weights=weights)
-    interpolated_vector_tensor = torch.tensor(interpolated_vector, dtype=torch.float32).to(device)
-    
-    return interpolated_vector_tensor
 
-def visualize_latent_space(vae, data_loader, n_iter = 5000, perplexity = 100, device = 'cpu'):
-    mu_list = []
-    for _,data in data_loader:
-        data = data.to(device)
-        with torch.no_grad():
-            mu, _ = vae.enc(data)
-            mu_list.append(mu)
-
-    mu_tensor = torch.cat(mu_list, dim=0)
-    mu_tensor = mu_tensor.view(mu_tensor.size(0), -1)
-
-    tsne = TSNE(n_components=2, random_state=42, n_iter=n_iter, perplexity=perplexity)
-    mu_tsne = tsne.fit_transform(mu_tensor.cpu().numpy())
-
-    plt.figure(figsize=(10, 6))
-    plt.scatter(mu_tsne[:, 0], mu_tsne[:, 1], alpha=0.5)
-    plt.title('Latent Space Visualization using t-SNE')
-    plt.xlabel('t-SNE Dimension 1')
-    plt.ylabel('t-SNE Dimension 2')
-    plt.grid(True)
-    plt.show()
-
-    return mu_tensor, mu_tsne
-
-def find_interpolated_vector(t_sne_output, latent_vectors, point, k=5, device='cpu'):
-    if isinstance(latent_vectors, torch.Tensor):
-        latent_vectors = latent_vectors.cpu().numpy()
-    
-    nbrs = NearestNeighbors(n_neighbors=k, algorithm='ball_tree').fit(t_sne_output)
-    distances, indices = nbrs.kneighbors([point])
-    
-    latent_points = latent_vectors[indices[0]]
-    weights = 1 / distances[0]
-    interpolated_vector = np.average(latent_points, axis=0, weights=weights)
-    interpolated_vector_tensor = torch.tensor(interpolated_vector, dtype=torch.float32).to(device)
-    
-    return interpolated_vector_tensor
-
-def plot_latent_space_airfoils(vae, airfoil_x, centroids, device):
-    """
-    Plots airfoils corresponding to centroid points in the latent space.
-
-    Parameters:
-        vae (nn.Module): Trained VAE model.
-        airfoil_x (Tensor): X coordinates for airfoil plotting.
-        centroids (np.array): Centroid points from the clustering.
-        device (str): Computation device ('cpu' or 'cuda').
-    """
-    num_centroids = centroids.shape[0]
-    nrows = (num_centroids + 2) // 3
-    fig, axes = plt.subplots(nrows=nrows, ncols=3, figsize=(16, 8))  # Adjust grid size as needed
-    fig.suptitle('Airfoils from Centroid Points in Latent Space', fontsize=16)
-
-    # Ensure axes is always a 2D array for easy iteration
-    if nrows == 1:
-        axes = np.expand_dims(axes, 0)
-    if num_centroids < 3:
-        axes = np.expand_dims(axes, 1)
-    
-    axes = axes.flatten()
-
-    # Iterate over the centroids and plot airfoils
-    for i, (ax, centroid) in enumerate(zip(axes, centroids)):
-        centroid_tensor = torch.tensor(centroid, dtype=torch.float32).to(device)
-        
-        # Ensure the centroid tensor has the correct shape
-        if centroid_tensor.dim() == 1:
-            centroid_tensor = centroid_tensor.unsqueeze(0)
-        
-        with torch.no_grad():
-            decoder_output = vae.decode(centroid_tensor).cpu().numpy().flatten()
-
-        ax.scatter(airfoil_x, decoder_output, s=0.6, c='black')
-        ax.axis('off')
-        ax.axis('equal')
-        ax.set_title(f"Centroid {i + 1}")
-
-    # Hide any remaining empty subplots
-    for j in range(i + 1, len(axes)):
-        fig.delaxes(axes[j])
-
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
-    plt.show()
-
-# Example usage assuming you have `vae`, `airfoil_x`, `centroids`, and `device` variables
-# plot_latent_space_airfoils(vae, airfoil_x, centroids_tsne, device)
-
-
-def save_vae_reconstructions(dataset, vae, device, output_dir='vae_reconstructed'):
+def save_vae_reconstructions(dataset, vae, device, output_dir='vae_reconstructed', z_dir = 'vae_z'):
     """
     Processes each sample in the dataset using a VAE, reconstructs the airfoils, 
     and saves them in a .dat format.
@@ -271,17 +190,20 @@ def save_vae_reconstructions(dataset, vae, device, output_dir='vae_reconstructed
         # Process each sample and save reconstruction
         for batch_idx, (name, local_batch) in enumerate(data_loader):
             y_real = local_batch.to(device)
-            recon_y, _, _ = vae(y_real)
+            recon_y, mu, _ = vae(y_real)
             y_values = recon_y.squeeze().cpu().numpy()
+            latent_z = mu.squeeze().cpu().numpy()
 
             # Combine x and y positions and transpose for saving
             combined_data = np.vstack((x_positions, y_values)).T
             
             # Format and save reconstructed output in .dat format
             save_path = os.path.join(output_dir, f'{name[0]}.dat')
+            z_save_path = os.path.join(z_dir, f'{name[0]}.csv')
             with open(save_path, 'w') as f:
                 np.savetxt(f, combined_data, fmt='%1.7e', delimiter='   ')
-            
+            with open(z_save_path, 'w') as f:
+                np.savetxt(f, latent_z, fmt='%1.7e', delimiter=',')
             # Optionally print progress
             print(f"Saved reconstruction {batch_idx + 1}/{len(data_loader)}")
 
@@ -311,7 +233,6 @@ def neural_foil_eval(path, clcd_path, alpha=0, Re=2e6, mach=0.2):
     for filename in files:
         try:
             # Calculate the aerodynamic coefficients
-            print(filename)
             coef = nf.get_aero_from_dat_file(
                 os.path.join(path, filename),
                 alpha=alpha,
@@ -332,7 +253,6 @@ def neural_foil_eval(path, clcd_path, alpha=0, Re=2e6, mach=0.2):
                 max_cd = cd
                 max_cd_name = filename
             combined_data = np.vstack((cl, cd)).T
-            print(f"CL: {cl:.4f}, CD: {cd:.4f}")
             np.savetxt(os.path.join(clcd_path, os.path.splitext(filename)[0] + '.csv'), combined_data, delimiter=',')
             
             # Print the airfoil object and aerodynamic coefficients
@@ -434,8 +354,43 @@ def get_coeff_from_coordinates(dataset, coordinates, alpha=0, Re=2e6, model_size
         Re=Re,
         model_size=model_size,
     )
+    cl = coef['CL'][0]
+    cd = coef['CD'][0]
+    cl_cd = [cl, cd]
     
-    return coef
+    return cl_cd
+
+def calculate_clcd_stats(path):
+    """
+    Calculates the mean and standard deviation of Cl and Cd from a directory of Cl/Cd data.
+    
+    Parameters:
+        path (str): Directory containing the Cl/Cd data.
+    
+    Returns:
+        tuple: Mean and standard deviation of Cl and Cd.
+    """
+    # List all .csv files in the specified directory
+    files = [f for f in os.listdir(path) if f.endswith('.csv')]
+    
+    cl_values = []
+    cd_values = []
+    
+    # Iterate over each file
+    for filename in files:
+        with open(os.path.join(path, filename), 'r') as f:
+            data = f.readlines()
+            cl, cd = data[0].strip().split(',')
+            cl_values.append(float(cl))
+            cd_values.append(float(cd))
+
+    
+    cl_mean = np.mean(cl_values)
+    cl_std = np.std(cl_values)
+    cd_mean = np.mean(cd_values)
+    cd_std = np.std(cd_values)
+    
+    return cl_mean, cl_std, cd_mean, cd_std
 
 def train_vae(device, dataset, dataloader, num_epochs=200, learning_rate=0.001, beta_start=0.0, beta_end=0.01):
 
@@ -458,17 +413,17 @@ def train_vae(device, dataset, dataloader, num_epochs=200, learning_rate=0.001, 
 
     # Optimizer and Scheduler
     optim = Adam(vae.parameters(), lr=learning_rate)
-    scheduler = ReduceLROnPlateau(optim, 'min', factor=0.97, patience=100, verbose=True)
+    scheduler = ReduceLROnPlateau(optim, 'min', factor=0.8, patience=100, verbose=True)
 
     # Beta scheduling
-    beta_increment = ((beta_end - beta_start) / num_epochs)*2
+    beta_increment = ((beta_end - beta_start) / num_epochs)*16
 
     # Training loop
     total_losses = []
     for epoch in range(num_epochs):
-        epoch_losses = []
-        if epoch <= int(num_epochs/2):
-            current_beta = beta_start + beta_increment * epoch
+        epoch_loss = 0
+        if epoch <= int(num_epochs/16):
+            current_beta = min(beta_start + beta_increment * epoch, beta_end)
         for _,local_batch in dataloader:
             y_real = local_batch.to(device)
 
@@ -478,7 +433,7 @@ def train_vae(device, dataset, dataloader, num_epochs=200, learning_rate=0.001, 
         #        real_coef = get_coeff_from_coordinates(dataset, y_real[i].detach().cpu().numpy())
         #        cl_cd_real.append([real_coef["CL"][0], real_coef["CD"][0]])
         #        print(f'CL: {np.float32(real_coef["CL"][0]):.4f}, CD: {np.float32(real_coef["CD"][0]):.4f}')
-            recon_y, mu, logvar = vae(y_real)
+            recon_y, mu, logvar= vae(y_real)
 
             # neuralfoil eval for reconstructed airfoils
           #  cl_cd_recon = []
@@ -491,14 +446,14 @@ def train_vae(device, dataset, dataloader, num_epochs=200, learning_rate=0.001, 
             optim.zero_grad()
             loss.backward()
             optim.step()
-            epoch_losses.append(loss.item())
-        scheduler.step(sum(epoch_losses) / len(epoch_losses))
-        total_losses.append(sum(epoch_losses) / len(epoch_losses))
-        print(f'Epoch {epoch+1}: Epoch Loss: {epoch_losses[-1]:.4f} Total Loss: {total_losses[-1]:.4f}, Learning Rate: {optim.param_groups[0]["lr"]:.6f}')
+            epoch_loss += loss.detach().cpu().item()
+        scheduler.step(epoch_loss)
+        total_losses.append(epoch_loss)
+        print(f'Epoch {epoch+1}: Epoch Loss: {epoch_loss:.4f}, Learning Rate: {optim.param_groups[0]["lr"]:.9f}')
 
-    return total_losses, vae, airfoil_x
+    return total_losses, vae, airfoil_x, mu
 
-def train_diffusion(conditioned_dataloader, vae, device, lr=0.01, epochs=500, log_freq=50):
+def train_diffusion_latent(conditioned_dataloader, vae, device, cl_mean, cl_std, cd_mean, cd_std, lr=0.01, epochs=500, log_freq=50, conditioning=True):
     """
     Trains a diffusion model on conditioned airfoil data.
 
@@ -513,15 +468,19 @@ def train_diffusion(conditioned_dataloader, vae, device, lr=0.01, epochs=500, lo
     """
 
     # Initialize the model and move it to the specified device
-    model = AirfoilDiffusion(32, 1, 1).to(device)
+    model = AirfoilDiffusion(32, 1, 1, cl_mean=cl_mean, cl_std=cl_std, cd_mean=cd_mean, cd_std=cd_std, conditioning=conditioning).to(device)
 
     # Set up the optimizer and learning rate scheduler
     optimizer = Adam(model.parameters(), lr=lr)
-    scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.8, patience=10)
+    scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.8, patience=100)
     loss_fn = nn.L1Loss()
+
+    mu_list = []
 
     # Training loop
     total_losses = []
+    if conditioning == False:
+        apply_conditioning = False
     for i in range(epochs):
         model.train()
         epoch_loss = 0
@@ -532,7 +491,9 @@ def train_diffusion(conditioned_dataloader, vae, device, lr=0.01, epochs=500, lo
             cl_cd = cl_cd.to(device)
             latent_vector = mu + sigma * (2*torch.randn_like(mu, device=device) - 1)
             noise = torch.randn_like(mu, device=device)
-            pred = model(latent_vector, noise, cl_cd)
+            if conditioning:
+                apply_conditioning = random.random() < 0.8
+            pred = model(latent_vector, noise, cl_cd, apply_conditioning)
             loss = loss_fn(pred, noise)
             optimizer.zero_grad()
             loss.backward()
@@ -546,6 +507,80 @@ def train_diffusion(conditioned_dataloader, vae, device, lr=0.01, epochs=500, lo
 
         if i % log_freq == 0 or i == epochs - 1:
             print(f"Epoch {i} loss: {epoch_loss:.4f}, learning rate: {optimizer.param_groups[0]['lr']:.6f}")
+    return model, total_losses
+
+
+import os
+import torch
+
+def train_diffusion(conditioned_dataloader, device, cl_mean, cl_std, cd_mean, cd_std, lr=0.01, epochs=500, log_freq=50, save_predictions_freq=5000, conditioning=True, save_dir="predictions"):
+    """
+    Trains a diffusion model on conditioned airfoil data.
+
+    Parameters:
+        conditioned_dataloader (DataLoader): DataLoader for the conditioned airfoil data.
+        device (torch.device): The device (GPU/CPU) to run the training on.
+        cl_mean (float): Mean value for lift coefficient normalization.
+        cl_std (float): Standard deviation for lift coefficient normalization.
+        cd_mean (float): Mean value for drag coefficient normalization.
+        cd_std (float): Standard deviation for drag coefficient normalization.
+        lr (float): Learning rate for the optimizer.
+        epochs (int): Number of training epochs.
+        log_freq (int): Frequency of logging training progress.
+        save_predictions_freq (int): Frequency of saving model predictions.
+        conditioning (bool): Whether to apply conditioning.
+        save_dir (str): Directory to save model predictions.
+    """
+
+    # Initialize the model and move it to the specified device
+    model = AirfoilDiffusion(200, 1, 1, cl_mean=cl_mean, cl_std=cl_std, cd_mean=cd_mean, cd_std=cd_std, conditioning=conditioning).to(device)
+
+    # Set up the optimizer and learning rate scheduler
+    optimizer = Adam(model.parameters(), lr=lr)
+    scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=500)
+    loss_fn = nn.L1Loss()
+
+    # Ensure the save directory exists
+    os.makedirs(save_dir, exist_ok=True)
+
+    # Training loop
+    total_losses = []
+    for i in range(epochs):
+        model.train()
+        epoch_loss = 0
+        for batch_idx, data, cl_cd in conditioned_dataloader:
+            data = data.to(device)
+            cl_cd = cl_cd.to(device)
+            noise = torch.randn_like(data, device=device)
+            apply_conditioning = conditioning and (random.random() < 0.8)
+            pred, noised_data = model(data, noise, cl_cd, apply_conditioning)
+            loss = loss_fn(pred, noise)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.detach().cpu().item()
+
+        epoch_loss /= len(conditioned_dataloader)
+        total_losses.append(epoch_loss)
+        scheduler.step(epoch_loss)
+
+        if i % log_freq == 0 or i == epochs - 1:
+            print(f"Epoch {i} loss: {epoch_loss:.4f}, learning rate: {optimizer.param_groups[0]['lr']:.6f}")
+
+        if i % save_predictions_freq == 0 or i == epochs - 1:
+            # Save predictions and input data
+            # save denoised sample
+            save_path = os.path.join(save_dir, f"epoch_{i}_predictions.pt")
+            torch.save({
+                'epoch': i,
+                'data': data.detach().cpu(),
+                'predictions': pred.detach().cpu(),
+                'noise': noise.detach().cpu(),
+                'cl_cd': cl_cd.detach().cpu(),
+                'noised_data': noised_data.detach().cpu(),
+            }, save_path)
+            print(f"Saved predictions for epoch {i} at {save_path}")
+
     return model, total_losses
 
 

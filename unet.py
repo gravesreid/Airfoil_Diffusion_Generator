@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class ConvBnSiLu(nn.Module):
@@ -96,6 +97,8 @@ class DecoderBlock(nn.Module):
 
     def forward(self,x,x_shortcut,t=None):
         x=self.upsample(x)
+        x = F.interpolate(x, size=x_shortcut.shape[2:], mode='linear', align_corners=False)
+        #print(x.shape,x_shortcut.shape)
         x=torch.cat([x,x_shortcut],dim=1)
         x=self.conv0(x)
         if t is not None:
@@ -110,7 +113,7 @@ class Unet(nn.Module):
     '''
     Modified UNet design to include conditioned inputs.
     '''
-    def __init__(self, timesteps, time_embedding_dim, in_channels=1, out_channels=1, base_dim=32, dim_mults=[2, 4, 8, 16], cond_dim=2):
+    def __init__(self, timesteps, time_embedding_dim, in_channels=1, out_channels=1, base_dim=200, dim_mults=[2, 4, 8, 16], cond_dim=2, cl_mean=0.0, cl_std=1.0, cd_mean=0.0, cd_std=1.0, scaling_factor = 0.0):
         super().__init__()
         assert isinstance(dim_mults, (list, tuple))
         assert base_dim % 2 == 0
@@ -121,6 +124,8 @@ class Unet(nn.Module):
         self.time_embedding = nn.Embedding(timesteps, time_embedding_dim)
         self.cond_fc = nn.Linear(cond_dim, time_embedding_dim)  # New layer for condition embedding
 
+        self.bilinear = nn.Bilinear(time_embedding_dim, time_embedding_dim, time_embedding_dim)# New layer for combining time and condition embeddings
+
         self.encoder_blocks = nn.ModuleList([EncoderBlock(c[0], c[1], time_embedding_dim) for c in channels])
         self.decoder_blocks = nn.ModuleList([DecoderBlock(c[1], c[0], time_embedding_dim) for c in channels[::-1]])
 
@@ -128,14 +133,23 @@ class Unet(nn.Module):
                                        ResidualBottleneck(channels[-1][1], channels[-1][1]//2))
 
         self.final_conv = nn.Conv1d(channels[0][0]//2, out_channels, kernel_size=1)
-        self.act = nn.Tanh()
+
+        # mean and std for normalizing the condition input
+        self.cl_mean = cl_mean
+        self.cl_std = cl_std
+        self.cd_mean = cd_mean
+        self.cd_std = cd_std
+        self.scaling_factor = scaling_factor
+
+
 
     def forward(self, x, t, cond):
-        # Process condition input
+        cond = cond * self.scaling_factor
         cond_emb = self.cond_fc(cond)
         #print("t type before embedding:",t.type())
         t_emb = self.time_embedding(t)
         combined_emb = t_emb + cond_emb  # Combine embeddings
+        #combined_emb = self.bilinear(t_emb, cond_emb)
         x = self.init_conv(x)
         encoder_shortcuts = []
         for encoder_block in self.encoder_blocks:
@@ -172,7 +186,7 @@ class ConditionedUnet(Unet):
 
 
 if __name__=="__main__":
-    x=torch.randn(128,1,32)
+    x=torch.randn(128,1,200)
     t=torch.randint(0,1000,(128,))
     model=Unet(1000,128)
     y=model(x,t)

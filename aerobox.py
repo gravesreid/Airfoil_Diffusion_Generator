@@ -17,6 +17,7 @@ for filename in files:
         
         # Repanel the airfoil
         af = af.repanel(n_points_per_side=100)
+        af = af.normalize()
         coef = af.get_aero_from_neuralfoil(
                 alpha=5,
                 Re=1e6,
