@@ -354,11 +354,15 @@ def get_coeff_from_coordinates(dataset, coordinates, alpha=0, Re=2e6, model_size
         Re=Re,
         model_size=model_size,
     )
+    confidence = coef['analysis_confidence'][0]
     cl = coef['CL'][0]
     cd = coef['CD'][0]
+    cm = coef['CM'][0]
+    top_xtr = coef['Top_Xtr'][0]
+    bot_xtr = coef['Bot_Xtr'][0]
     cl_cd = [cl, cd]
     
-    return cl_cd
+    return confidence, cl_cd, cm, top_xtr, bot_xtr
 
 def calculate_clcd_stats(path):
     """
@@ -537,7 +541,7 @@ def train_diffusion(conditioned_dataloader, device, cl_mean, cl_std, cd_mean, cd
 
     # Set up the optimizer and learning rate scheduler
     optimizer = Adam(model.parameters(), lr=lr)
-    scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=500)
+    scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.75, patience=5000)
     loss_fn = nn.L1Loss()
 
     # Ensure the save directory exists

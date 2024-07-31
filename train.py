@@ -67,10 +67,10 @@ else:
 
 # train diffusion model on latent space
 conditioned_dataset = ConditionedAirfoilDataset(path='aero_sandbox_processed/', eval_path='clcd_data/')
-conditioned_dataloader = DataLoader(conditioned_dataset, batch_size=1024, shuffle=True)
+conditioned_dataloader = DataLoader(conditioned_dataset, batch_size=128, shuffle=True)
 
 dataset = AirfoilDataset(path='aero_sandbox_processed/')
-dataloader = DataLoader(dataset, batch_size=1024, shuffle=True)
+dataloader = DataLoader(dataset, batch_size=128, shuffle=True)
 
 latent_diffusion = False
 
@@ -78,7 +78,7 @@ latent_diffusion = False
 if latent_diffusion:
     diffusion_model, diffusion_loss = train_diffusion_latent(conditioned_dataloader, vae, device,cl_mean, cl_std, cd_mean, cd_std, conditioning=False, lr=0.001, epochs = 10000, log_freq=100)
 else:
-    diffusion_model, diffusion_loss = train_diffusion(conditioned_dataloader, device,cl_mean, cl_std, cd_mean, cd_std, conditioning=True, lr=1e-3, epochs = 75000, log_freq=5000) # 50000 epochs, 1e-3 lr was good. 75000 epochs, no change
+    diffusion_model, diffusion_loss = train_diffusion(conditioned_dataloader, device,cl_mean, cl_std, cd_mean, cd_std, conditioning=True, lr=1e-3, epochs = 50000, log_freq=5000) # 50000 epochs, 1e-3 lr was good. 75000 epochs, no change
 
 
 # save diffusion model

@@ -19,8 +19,8 @@ for filename in files:
         af = af.repanel(n_points_per_side=100)
         af = af.normalize()
         coef = af.get_aero_from_neuralfoil(
-                alpha=5,
-                Re=1e6,
+                alpha=0,
+                Re=2e6,
                 mach=0.2,
             )
         cl = coef['CL'][0]

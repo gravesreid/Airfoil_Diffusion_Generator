@@ -115,6 +115,7 @@ class AirfoilDiffusionLatent(nn.Module):
         Cl = cond[:, 0].unsqueeze(1).unsqueeze(2)  # Shape becomes [batch_size, 1, 1] compatible with x_0
         Cd = cond[:, 1].unsqueeze(1).unsqueeze(2)  # Same as above
 
+
         alpha_scaled = self.sqrt_alpha_bar[t].unsqueeze(1).unsqueeze(2)  # Ensure shape is [batch_size, 1, 1]
         one_minus_alpha_scaled = self.sqrt_one_minus_alpha_bar[t].unsqueeze(1).unsqueeze(2)  # Same as above
 
@@ -284,7 +285,7 @@ class AirfoilDiffusion(nn.Module):
             t_tensor = torch.full((n_samples,), t, dtype=torch.int64, device=device)
             #print("t_tensor shape in sampling: ", t_tensor.shape)
             sample = self._reverse_diffusion(sample, t_tensor, torch.randn_like(sample, device=device), cl_cd_values)
-            sample.clamp_(-.99, .99)
+            sample.clamp_(-1, 1)
             all_samples.append(sample)
 
         all_samples = torch.stack(all_samples, dim=0)
