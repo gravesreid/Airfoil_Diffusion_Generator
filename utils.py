@@ -39,9 +39,8 @@ def save_images(airfoils, path, cl, num_cols=4):
         ax.scatter(airfoil[0], airfoil[1], color='black')
         cl_string = f'cl={cl[i][0]:.2f}'
         ax.set_title(f'Airfoil {i+1}, {cl_string}')
-        ax.set_xlim(0, 1)
-        ax.set_ylim(-1, 1)
         ax.set_aspect('equal')
+        ax.axis('off')
 
     # Hide any remaining empty subplots
     for j in range(num_airfoils, len(axs)):

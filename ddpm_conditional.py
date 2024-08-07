@@ -11,6 +11,7 @@ from modules import UNet_conditional, EMA  # Ensure these are in modules.py
 import logging
 from airfoil_dataset import AirfoilDataset
 from torch.utils.data import DataLoader
+import wandb
 
 logging.basicConfig(format="%(asctime)s - %(levelname)s: %(message)s", level=logging.INFO, datefmt="%I:%M:%S")
 
@@ -87,6 +88,14 @@ def train(args):
     ema = EMA(0.995)
     ema_model = copy.deepcopy(model).eval().requires_grad_(False)
 
+    # Wandb setup
+    wandb.init(project='conditional_airfoil_diffusion', name=args.run_name, config=args)
+    config = wandb.config
+    config.epochs = args.epochs
+    config.batch_size = args.batch_size
+    config.lr = args.lr
+
+
     for epoch in range(args.epochs):
         logging.info(f"Starting epoch {epoch}:")
         pbar = tqdm(dataloader)
@@ -97,20 +106,20 @@ def train(args):
             t = diffusion.sample_timesteps(train_coords.shape[0]).to(device)
             x_t, noise = diffusion.noise_images(train_coords, t)
             if np.random.random() < 0.1:
-                labels = None
+                cl = None
             predicted_noise = model(x_t, t, cl)
-            loss = mse(noise, predicted_noise)
-            #loss = chamfer_distance(x_t, predicted_noise)
+            #loss = mse(noise, predicted_noise)
+            loss = chamfer_distance(x_t, predicted_noise)
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             ema.step_ema(ema_model, model)
 
-            pbar.set_postfix(MSE=loss.item())
-            logger.add_scalar("MSE", loss.item(), global_step=epoch * l + i)
+            pbar.set_postfix(epoch_loss=loss.item())
+            logger.add_scalar("Loss", loss.item(), global_step=epoch * l + i)
 
-        if epoch % 10 == 0:
+        if epoch % 5000 == 0:
             cl = torch.linspace(-0.2, 1.5, 5).unsqueeze(1).to(device)
             sampled_images = diffusion.sample(model, n=5, conditioning=cl)
             print(f'Sampled images shape: {sampled_images.shape}')
@@ -122,12 +131,17 @@ def train(args):
             torch.save(ema_model.state_dict(), os.path.join("models", args.run_name, f"ema_ckpt.pt"))
             torch.save(optimizer.state_dict(), os.path.join("models", args.run_name, f"optim.pt"))
 
+            wandb.log({"Generated Images": [wandb.Image(os.path.join("results", args.run_name, f"{epoch}.jpg"))],
+                       "EMA Generated Images": [wandb.Image(os.path.join("results", args.run_name, f"{epoch}_ema.jpg"))]})
+
+
+
 def launch():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--run_name', type=str, default="DDPM_conditional")
     parser.add_argument('--epochs', type=int, default=50000)
-    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--batch_size', type=int, default=1024)
     parser.add_argument('--num_airfoil_points', type=int, default=100)
     parser.add_argument('--cond_dim', type=int, default=1)
     parser.add_argument('--dataset_path', type=str, default="coord_seligFmt/")
