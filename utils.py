@@ -517,7 +517,7 @@ def train_diffusion_latent(conditioned_dataloader, vae, device, cl_mean, cl_std,
 import os
 import torch
 
-def train_diffusion(conditioned_dataloader, device, cl_mean, cl_std, cd_mean, cd_std, lr=0.01, epochs=500, log_freq=50, save_predictions_freq=5000, conditioning=True, save_dir="predictions"):
+def train_diffusion(conditioned_dataloader, device, cl_mean, cl_std, cd_mean, cd_std, timesteps=1000, base_dim=8, lr=0.01, epochs=500, log_freq=50, save_predictions_freq=5000, conditioning=True, save_dir="predictions"):
     """
     Trains a diffusion model on conditioned airfoil data.
 
@@ -537,11 +537,11 @@ def train_diffusion(conditioned_dataloader, device, cl_mean, cl_std, cd_mean, cd
     """
 
     # Initialize the model and move it to the specified device
-    model = AirfoilDiffusion(200, 1, 1, cl_mean=cl_mean, cl_std=cl_std, cd_mean=cd_mean, cd_std=cd_std, conditioning=conditioning).to(device)
+    model = AirfoilDiffusion(200, 1, 1, timesteps=timesteps, base_dim=base_dim, cl_mean=cl_mean, cl_std=cl_std, cd_mean=cd_mean, cd_std=cd_std, conditioning=conditioning).to(device)
 
     # Set up the optimizer and learning rate scheduler
     optimizer = Adam(model.parameters(), lr=lr)
-    scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.75, patience=5000)
+    scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.9, patience=50)
     loss_fn = nn.L1Loss()
 
     # Ensure the save directory exists

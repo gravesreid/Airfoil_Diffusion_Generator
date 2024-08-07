@@ -60,7 +60,8 @@ for i in range(len(airfoils)):
         model_size = "xxxlarge"
     )
     print(f"new cl = {new_coef['CL'][0]}, new cd = {new_coef['CD'][0]}")
-    new_cl_list.append(new_coef['CL'][0])
+    if new_coef['CL'][0] > -0.2:
+        new_cl_list.append(new_coef['CL'][0])
     if new_coef['CD'][0] < 0.05:
         new_cd_list.append(new_coef['CD'][0])
     original_coordinates = np.array([airfoil_x, original_airfoil_y]).T
@@ -71,7 +72,8 @@ for i in range(len(airfoils)):
         model_size = "xxxlarge"
     )
     print(f"original cl = {original_coef['CL'][0]}, original cd = {original_coef['CD'][0]}")
-    old_cl_list.append(original_coef['CL'][0])
+    if original_coef['CL'][0] > -0.2:
+        old_cl_list.append(original_coef['CL'][0])
     if original_coef['CD'][0] < 0.05:
         old_cd_list.append(original_coef['CD'][0])
 

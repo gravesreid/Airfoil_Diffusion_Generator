@@ -24,7 +24,7 @@ vae.to(device)
 vae.eval()
 
 # Load the trained diffusion model
-diffusion_model = AirfoilDiffusion(airfoil_dim=airfoil_dim, in_channels=in_channels, out_channels=out_channels, device=device)
+diffusion_model = AirfoilDiffusion(airfoil_dim=airfoil_dim, in_channels=in_channels, out_channels=out_channels, base_dim=64, timesteps=100, device=device)
 diffusion_model.load_state_dict(torch.load('diffusion.pth'))
 diffusion_model.to(device)
 diffusion_model.eval()
@@ -218,19 +218,21 @@ def generate_airfoils(diffusion_model, n_samples, cl=1, cd=0.02, device='cuda'):
         confidence_list.append(confidence)
         confidence = np.atleast_1d(confidence)
         np.savetxt(f'generated_confidence/generated_airfoil_confidence_cl{cl}_cd{cd}_{i}.csv', confidence)
-        if confidence < 0.8:
-            outlier_dict = {"name": f'generated_airfoil_cl{cl}_cd{cd}_{i}.dat', "confidence": confidence}
-            gen_outlier_list.append(outlier_dict)
+       # if confidence < 0.8:
+       #     outlier_dict = {"name": f'generated_airfoil_cl{cl}_cd{cd}_{i}.dat', "confidence": confidence}
+       #     gen_outlier_list.append(outlier_dict)
         # save the confidence, cl_cd, and xtr values from neuralfoil
         cm_list.append(cm)
         xtr_top_list.append(top_xtr)
         xtr_bot_list.append(bot_xtr)
         #print(f"cl_cd: {cl_cd}")
-        if cl_cd[0] > -0.2 and cl_cd[0] < 1.9 and cl_cd[1] < .04:
-            airfoil_dict = {"coords":coords, "z":z_vector, "cl_cd":cl_cd}
-            generated_dict_list.append(airfoil_dict)
-            good_airfoils += 1
-    print(f"Generated {good_airfoils} good airfoils")
+       # if cl_cd[0] > -0.2 and cl_cd[0] < 1.9 and cl_cd[1] < .04:
+       #     airfoil_dict = {"coords":coords, "z":z_vector, "cl_cd":cl_cd}
+       #     generated_dict_list.append(airfoil_dict)
+       #     good_airfoils += 1
+    #print(f"Generated {good_airfoils} good airfoils")
+        airfoil_dict = {"coords":coords, "z":z_vector, "cl_cd":cl_cd}
+        generated_dict_list.append(airfoil_dict)
 
     # get the confidence values for uiuc airfoils
     uiuc_confidence_list = []
@@ -491,7 +493,7 @@ def visualize_denoising(all_samples, airfoil_x):
 
 
 # Number of samples to generate
-n_samples = 1566
+n_samples = 20
 
 # clear the generated airfoils folder
 for f in os.listdir('generated_airfoils/'):
