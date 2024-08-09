@@ -19,6 +19,8 @@ class AirfoilDataset(Dataset):
             with open(self.cache_file, 'rb') as f:
                 cache = pickle.load(f)
                 self.coordinates = cache['coordinates']
+                self.upper_coord = cache['upper_coord']
+                self.lower_coord = cache['lower_coord']
                 self.diffusion_training_coordinates = cache['diffusion_training_coordinates']
                 self.CD = cache['CD']
                 self.CL = cache['CL']
@@ -103,22 +105,39 @@ class AirfoilDataset(Dataset):
     def __getitem__(self, idx):
         coordinates = self.coordinates[idx]
         train_coords = self.diffusion_training_coordinates[idx]
+        train_coords_y = train_coords[:, 1]  # only pass the y coordinates to the model
+        train_coords_x = train_coords[:, 0]  # only pass the x coordinates to the model
         CD = self.CD[idx]
         CL = self.CL[idx]
 
         # Convert data to the required shape: (channels, data)
-        train_coords = train_coords.T  # Transpose to shape (2, data_points)
+        train_coords = train_coords.T  # Transpose to shape (1, data_points)
+        train_coords_y = train_coords_y.T  # Transpose to shape (1, data_points)
+
+        coordinates = coordinates.T  # Transpose to shape (2, data_points)
 
         return {
-            'coordinates': coordinates,
             'train_coords': train_coords,
+            'train_coords_y': train_coords_y,
             'CD': CD,
             'CL': CL
         }
+    def get_x(self):
+        return self.diffusion_training_coordinates[0][:, 0]
 
 def plot_airfoil(airfoil):
-    plt.plot(airfoil[:, 0], airfoil[:, 1])
-    plt.gca().set_aspect('equal')
+    fig, ax = plt.subplots()
+    ax.plot(airfoil[0,:], airfoil[1,:], color='black')
+    ax.set_aspect('equal')
+    ax.axis('off')
+    plt.show()
+
+def plot_upper_and_lower_half(upper_half, lower_half):
+    fig, ax = plt.subplots()
+    ax.plot(upper_half[0,:], upper_half[1,:], color='black')
+    ax.plot(lower_half[0,:], lower_half[1,:], color='black')
+    ax.set_aspect('equal')
+    ax.axis('off')
     plt.show()
 
 # Usage example
@@ -135,11 +154,12 @@ if __name__ == '__main__':
         print(f"CL: {data['CL']}")
         plot_airfoil(data['coordinates'][0])
         plot_airfoil(data['train_coords'][0])
+        plot_upper_and_lower_half(data['upper_coord'][0], data['lower_coord'][0])
         break
     airfoil_sample = dataset[0]
     print("Coordinates shape:", airfoil_sample['coordinates'].shape)
+    print("Upper coordinates shape:", airfoil_sample['upper_coord'].shape)
+    print("Lower coordinates shape:", airfoil_sample['lower_coord'].shape)
     print("Train coordinates shape:", airfoil_sample['train_coords'].shape)
     print("CD:", airfoil_sample['CD'])
     print("CL:", airfoil_sample['CL'])
-    plot_airfoil(airfoil_sample['coordinates'])
-    plot_airfoil(airfoil_sample['train_coords'])

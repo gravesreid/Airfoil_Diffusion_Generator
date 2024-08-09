@@ -38,7 +38,7 @@ class SelfAttention(nn.Module):
     def __init__(self, channels):
         super(SelfAttention, self).__init__()
         self.channels = channels
-        self.mha = nn.MultiheadAttention(channels, 4, batch_first=True)
+        self.mha = nn.MultiheadAttention(channels, 8, batch_first=True)
         self.ln = nn.LayerNorm(channels)
         self.ff_self = nn.Sequential(
             nn.LayerNorm(channels),
@@ -62,11 +62,13 @@ class DoubleConv(nn.Module):
         if not mid_channels:
             mid_channels = out_channels
         self.double_conv = nn.Sequential(
-            nn.Conv1d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
-            nn.GroupNorm(1, mid_channels),
+            nn.Conv1d(in_channels, mid_channels, kernel_size=3, padding=1, bias=True),
+            #nn.GroupNorm(1, mid_channels),
+            nn.InstanceNorm1d(mid_channels), # yayati suggestion
             nn.GELU(),
-            nn.Conv1d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
-            nn.GroupNorm(1, out_channels),
+            nn.Conv1d(mid_channels, out_channels, kernel_size=3, padding=1, bias=True),
+            #nn.GroupNorm(1, out_channels),
+            nn.InstanceNorm1d(out_channels), # yayati suggestion
         )
 
     def forward(self, x):
@@ -181,30 +183,33 @@ class UNet(nn.Module):
 
 
 class UNet_conditional(nn.Module):
-    def __init__(self, c_in=1, c_out=1, time_dim=128, cond_dim=10, device="cuda"):
+    def __init__(self, c_in=1, c_out=1, time_dim=128, cond_dim=10, base_dim=8, dim_mults=[1,2,4,8], device="cuda"):
         super().__init__()
         self.device = device
         self.time_dim = time_dim
-        self.inc = DoubleConv(c_in, 8)
-        self.down1 = Down(8, 16, time_dim)
-        self.sa1 = SelfAttention(16)
-        self.down2 = Down(16, 32, time_dim)
-        self.sa2 = SelfAttention(32)
-        self.down3 = Down(32, 32, time_dim)
-        self.sa3 = SelfAttention(32)
+        self.inc = DoubleConv(c_in, base_dim*dim_mults[0])
+        self.down1 = Down(base_dim*dim_mults[0], base_dim*dim_mults[1], time_dim)
+        self.sa1 = SelfAttention(base_dim*dim_mults[1])
+        self.down2 = Down(base_dim*dim_mults[1], base_dim*dim_mults[2], time_dim)
+        self.sa2 = SelfAttention(base_dim*dim_mults[2])
+        self.down3 = Down(base_dim*dim_mults[2], base_dim*dim_mults[2], time_dim)
+        self.sa3 = SelfAttention(base_dim*dim_mults[2])
 
-        self.bot1 = DoubleConv(32, 64)
-        self.bot2 = DoubleConv(64, 64)
-        self.bot3 = DoubleConv(64, 32)
+        self.bot1 = DoubleConv(base_dim*dim_mults[2], base_dim*dim_mults[3])
+        self.bot2 = DoubleConv(base_dim*dim_mults[3], base_dim*dim_mults[3])
+        self.bot3 = DoubleConv(base_dim*dim_mults[3], base_dim*dim_mults[2])
 
-        self.up1 = Up(64, 16, time_dim)
-        self.sa4 = SelfAttention(16)
-        self.up2 = Up(32, 8, time_dim)
-        self.sa5 = SelfAttention(8)
-        self.up3 = Up(16, 8, time_dim)
-        self.sa6 = SelfAttention(8)
-        self.outc = nn.Conv1d(8, c_out, kernel_size=1)
+        self.up1 = Up(base_dim*dim_mults[3], base_dim*dim_mults[1], time_dim)
+        self.sa4 = SelfAttention(base_dim*dim_mults[1])
+        self.up2 = Up(base_dim*dim_mults[2], base_dim*dim_mults[0], time_dim)
+        self.sa5 = SelfAttention(base_dim*dim_mults[0])
+        self.up3 = Up(base_dim*dim_mults[1], base_dim*dim_mults[0], time_dim)
+        self.sa6 = SelfAttention(base_dim*dim_mults[0])
+        self.outc = nn.Conv1d(base_dim*dim_mults[0], c_out, kernel_size=1)
 
+        self.cond_1 = nn.Linear(cond_dim, 8) # yayati suggestion
+        self.cond_2 = nn.Linear(8, 64) # yayati suggestion
+        #self.cond_emb = nn.Bilinear(64, time_dim, time_dim) # yayati suggestion
         self.cond_emb = nn.Bilinear(cond_dim, time_dim, time_dim)
 
     def pos_encoding(self, t, channels):
@@ -221,6 +226,9 @@ class UNet_conditional(nn.Module):
         t = self.pos_encoding(t, self.time_dim)
 
         if y is not None:
+           # y = self.cond_1(y)
+           # y = F.gelu(y)
+           # y = self.cond_2(y)
             y = self.cond_emb(y, t)
             t = t + y  # No need to unsqueeze here since pos_encoding and label_emb already have same dimensions
 

@@ -6,7 +6,7 @@ import aerosandbox as asb
 import matplotlib.pyplot as plt
 import torch.nn as nn
 import torch.optim as optim
-from airfoil_dataset import AirfoilDataset
+from airfoil_dataset_2d import AirfoilDataset
 
 # Define the diffusion model
 class Simple2DDiffusionModel(nn.Module):

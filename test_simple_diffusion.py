@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from airfoil_dataset import AirfoilDataset
+from airfoil_dataset_2d import AirfoilDataset
 from simple_diffusion import Simple2DDiffusionModel  # Make sure to import the model definition
 
 def plot_airfoil(airfoil, title="Airfoil"):

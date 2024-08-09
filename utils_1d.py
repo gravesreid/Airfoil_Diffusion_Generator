@@ -2,7 +2,19 @@ import matplotlib.pyplot as plt
 import torch
 import os
 from torch.utils.data import DataLoader
-from airfoil_dataset import AirfoilDataset
+from airfoil_dataset_1d import AirfoilDataset
+import numpy as np
+
+def smooth_airfoil(airfoil, airfoil_x, method = 'moving average', window = 3):
+    if method == 'moving average':
+        airfoil_smooth = np.convolve(airfoil, np.ones(window)/window, mode='same')
+    elif method == 'spline':
+        from scipy.interpolate import interp1d
+        f = interp1d(airfoil_x, airfoil, kind='cubic')
+        airfoil_smooth = f(airfoil_x)
+    return airfoil_smooth
+
+
 
 def plot_images(airfoils):
     num_airfoils = airfoils.shape[0]
@@ -16,14 +28,12 @@ def plot_images(airfoils):
         airfoil = airfoils[i].cpu().numpy()
         ax.scatter(airfoil[0], airfoil[1], color='black')
         ax.set_title(f'Airfoil {i+1}')
-        ax.set_xlim(-1, 1)
-        ax.set_ylim(-1, 1)
         ax.set_aspect('equal')
     
     plt.tight_layout()
     plt.show()
 
-def save_images(airfoils, path, cl, num_cols=4):
+def save_images(airfoils,airfoil_x, path, cl, num_cols=4):
     # input tensor cl is cl = torch.linspace(-0.2, 1.5, 5).unsqueeze(1).to(device) convert to numpy
     cl = cl.cpu().numpy()
     num_airfoils = airfoils.shape[0]
@@ -32,11 +42,11 @@ def save_images(airfoils, path, cl, num_cols=4):
     
     axs = axs.flatten()
 
+
     for i in range(num_airfoils):
         ax = axs[i]
         airfoil = airfoils[i].cpu().numpy()
-        print(f'Airfoil: {airfoil}')
-        ax.scatter(airfoil[0], airfoil[1], color='black')
+        ax.scatter(airfoil_x, airfoil[0,:], color='black')
         cl_string = f'cl={cl[i][0]:.2f}'
         ax.set_title(f'Airfoil {i+1}, {cl_string}')
         ax.set_aspect('equal')
