@@ -19,8 +19,6 @@ class AirfoilDataset(Dataset):
             with open(self.cache_file, 'rb') as f:
                 cache = pickle.load(f)
                 self.coordinates = cache['coordinates']
-                self.upper_coord = cache['upper_coord']
-                self.lower_coord = cache['lower_coord']
                 self.diffusion_training_coordinates = cache['diffusion_training_coordinates']
                 self.CD = cache['CD']
                 self.CL = cache['CL']

@@ -8,6 +8,7 @@ import os
 from airfoil_dataset_1d import AirfoilDataset
 from utils_1d import setup_logging
 import logging
+from tqdm import tqdm
 
 class Encoder(nn.Module):
     def __init__(self, airfoil_dim, latent_dim):
@@ -70,14 +71,14 @@ def train(args):
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     
     # Update the model initialization to match the modified architecture
-    model = VAE(input_channels=1, latent_dim=args.latent_dim, output_channels=1).to(device)
+    model = VAE(args.num_airfoil_points*2, args.latent_dim).to(device)
     
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     for epoch in range(args.epochs):
         model.train()
-        for i, data in enumerate(dataloader):
-            airfoil = data['train_coords'].to(device).float()  # Use 'train_coords' which is the reshaped 2D data
-            print(f'Airfoil shape: {airfoil.shape}')
+        pbar = tqdm(dataloader)
+        for i, data in enumerate(pbar):
+            airfoil = data['train_coords_y'].float().to(device)  # Use 'train_coords' which is the reshaped 2D data
             optimizer.zero_grad()
             recon_airfoil, mu, logvar = model(airfoil)
             
@@ -88,9 +89,11 @@ def train(args):
             
             loss.backward()
             optimizer.step()
+            pbar.set_postfix({'Loss': loss.item(), 'KL Loss': kl_loss.item(), 'Recon Loss': recon_loss.item()})
             
             if i % args.log_interval == 0:
                 logging.info(f"Epoch {epoch}, Batch {i}, Loss: {loss.item()}, KL Loss: {kl_loss.item()}, Recon Loss: {recon_loss.item()}")
+                pbar.write(f"Epoch {epoch}, Batch {i}, Loss: {loss.item()}, KL Loss: {kl_loss.item()}, Recon Loss: {recon_loss.item()}")
         
         if epoch % args.save_interval == 0:
             torch.save(model.state_dict(), f"vae_epoch_{epoch}.pt")
@@ -99,13 +102,19 @@ def launch():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--run_name', type=str, default='vae')
-    parser.add_argument('--device', type=str, default='cuda')
+    
+    # Automatically select the MPS device if available
+    if torch.backends.mps.is_available():
+        parser.add_argument('--device', type=str, default='mps')
+    else:
+        parser.add_argument('--device', type=str, default='cpu')
+    
     parser.add_argument('--dataset_path', type=str, default='coord_seligFmt/')
     parser.add_argument('--num_airfoil_points', type=int, default=100)
     parser.add_argument('--latent_dim', type=int, default=32)
     parser.add_argument('--lr', type=float, default=1e-3)
-    parser.add_argument('--epochs', type=int, default=1001)
-    parser.add_argument('--batch_size', type=int, default=256)
+    parser.add_argument('--epochs', type=int, default=201)
+    parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--log_interval', type=int, default=100)
     parser.add_argument('--save_interval', type=int, default=100)
     args = parser.parse_args()
