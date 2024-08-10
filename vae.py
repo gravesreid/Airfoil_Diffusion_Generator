@@ -83,8 +83,8 @@ def train(args):
             recon_airfoil, mu, logvar = model(airfoil)
             
             # Calculate the loss
-            kl_loss = 0.1 * kl_divergence(mu, logvar)
-            recon_loss = 10 * F.mse_loss(recon_airfoil, airfoil)
+            kl_loss = .1 * kl_divergence(mu, logvar)
+            recon_loss = 200 * F.mse_loss(recon_airfoil, airfoil)
             loss = kl_loss + recon_loss
             
             loss.backward()
@@ -111,7 +111,7 @@ def launch():
     
     parser.add_argument('--dataset_path', type=str, default='coord_seligFmt/')
     parser.add_argument('--num_airfoil_points', type=int, default=100)
-    parser.add_argument('--latent_dim', type=int, default=32)
+    parser.add_argument('--latent_dim', type=int, default=100)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--epochs', type=int, default=201)
     parser.add_argument('--batch_size', type=int, default=32)

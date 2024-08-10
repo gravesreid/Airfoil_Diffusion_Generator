@@ -16,7 +16,7 @@ def smooth_airfoil(airfoil, airfoil_x, method = 'moving average', window = 3):
 
 
 
-def plot_images(airfoils):
+def plot_images(airfoils, airfoil_x):
     num_airfoils = airfoils.shape[0]
     fig, axs = plt.subplots(1, num_airfoils, figsize=(num_airfoils * 5, 5))
     
@@ -25,13 +25,15 @@ def plot_images(airfoils):
     
     for i in range(num_airfoils):
         ax = axs[i]
-        airfoil = airfoils[i].cpu().numpy()
-        ax.scatter(airfoil[0], airfoil[1], color='black')
+        # Detach the tensor from the computation graph before converting to NumPy
+        airfoil = airfoils[i]
+        ax.scatter(airfoil_x, airfoil, color='black')
         ax.set_title(f'Airfoil {i+1}')
         ax.set_aspect('equal')
     
     plt.tight_layout()
     plt.show()
+
 
 def save_images(airfoils,airfoil_x, path, cl, num_cols=4):
     # input tensor cl is cl = torch.linspace(-0.2, 1.5, 5).unsqueeze(1).to(device) convert to numpy

@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 logging.basicConfig(format="%(asctime)s - %(levelname)s: %(message)s", level=logging.INFO, datefmt="%I:%M:%S")
 
 class Diffusion:
-    def __init__(self, noise_steps=500, beta_start=1e-3, beta_end=1e-3, num_airfoil_points=200, device="cuda"):
+    def __init__(self, noise_steps=500, beta_start=1e-7, beta_end=5e-5, num_airfoil_points=200, device="cuda"):
         self.noise_steps = noise_steps
         self.beta_start = beta_start
         self.beta_end = beta_end
@@ -213,8 +213,8 @@ def train(args):
 def launch():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--run_name', type=str, default="run_3")
-    parser.add_argument('--epochs', type=int, default=20001)
+    parser.add_argument('--run_name', type=str, default="run_2")
+    parser.add_argument('--epochs', type=int, default=10001)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--num_airfoil_points', type=int, default=100)
     parser.add_argument('--cond_dim', type=int, default=1)

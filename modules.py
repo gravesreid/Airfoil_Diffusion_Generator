@@ -209,8 +209,8 @@ class UNet_conditional(nn.Module):
 
         self.cond_1 = nn.Linear(cond_dim, 8) # yayati suggestion
         self.cond_2 = nn.Linear(8, 64) # yayati suggestion
-        #self.cond_emb = nn.Bilinear(64, time_dim, time_dim) # yayati suggestion
-        self.cond_emb = nn.Bilinear(cond_dim, time_dim, time_dim)
+        self.cond_emb = nn.Bilinear(64, time_dim, time_dim) # yayati suggestion
+        #self.cond_emb = nn.Bilinear(cond_dim, time_dim, time_dim)
 
     def pos_encoding(self, t, channels):
         inv_freq = 1.0 / (
@@ -226,9 +226,9 @@ class UNet_conditional(nn.Module):
         t = self.pos_encoding(t, self.time_dim)
 
         if y is not None:
-           # y = self.cond_1(y)
-           # y = F.gelu(y)
-           # y = self.cond_2(y)
+            y = self.cond_1(y)
+            y = F.relu(y)
+            y = self.cond_2(y)
             y = self.cond_emb(y, t)
             t = t + y  # No need to unsqueeze here since pos_encoding and label_emb already have same dimensions
 
