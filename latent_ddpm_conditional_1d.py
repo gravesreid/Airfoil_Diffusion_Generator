@@ -6,7 +6,7 @@ import torch.nn as nn
 from tqdm import tqdm
 from torch import optim
 from torch.utils.tensorboard import SummaryWriter
-from utils_1d import setup_logging, get_data, plot_images, save_images  # Ensure you have these functions in utils.py
+from utils_1d import setup_logging, get_data, plot_images, save_images_conditional  # Ensure you have these functions in utils.py
 from modules import UNet_conditional, EMA  # Ensure these are in modules.py
 import logging
 from airfoil_dataset_1d import AirfoilDataset
@@ -15,6 +15,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import wandb
 import math
 import matplotlib.pyplot as plt
+from vae import Encoder, Decoder, VAE
 
 logging.basicConfig(format="%(asctime)s - %(levelname)s: %(message)s", level=logging.INFO, datefmt="%I:%M:%S")
 
@@ -132,6 +133,10 @@ def train(args):
     dataset = AirfoilDataset(args.dataset_path, num_points_per_side=args.num_airfoil_points)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     model = UNet_conditional(c_in=1, c_out=1, cond_dim=args.cond_dim, time_dim=64, base_dim=16).to(device)
+    vae = VAE(args.num_airfoil_points*2, args.latent_dim).to(device)
+    vae.load_state_dict(torch.load(args.vae_model_path))
+    vae.eval()
+    vae.requires_grad_(False)
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.95, patience=100, verbose=True)
     mse = nn.MSELoss(reduction='none')
@@ -160,8 +165,10 @@ def train(args):
             train_coords = airfoil['train_coords_y'].to(device).float().unsqueeze(1)
             cl = airfoil['CL'].to(device).float().unsqueeze(1)
             cd = airfoil['CD'].to(device)
-            t = diffusion.sample_timesteps(train_coords.shape[0]).to(device)
-            x_t, noise = diffusion.noise_images(train_coords, t)
+            #pass train coords through vae
+            mu, _ = vae.enc(train_coords)
+            t = diffusion.sample_timesteps(mu.shape[0]).to(device)
+            x_t, noise = diffusion.noise_images(mu, t)
             if np.random.random() < 0.1:
                 cl = None
             predicted_noise = model(x_t, t, cl)
@@ -190,11 +197,13 @@ def train(args):
         if epoch % 100 == 0:
             cl = torch.linspace(-0.2, 1.5, 5).unsqueeze(1).to(device)
             sampled_images = diffusion.sample(model, n=5, conditioning=cl)
-            print(f'Sampled images shape: {sampled_images.shape}')
+            # pass sampled images through vae
+            sampled_images = vae.decode(sampled_images)
             ema_sampled_images = diffusion.sample(ema_model, n=5, conditioning=cl)  # Use cl instead of labels
+            ema_sampled_images = vae.decode(ema_sampled_images)
             #plot_images(sampled_images)
-            save_images(sampled_images, airfoil_x, os.path.join("results", args.run_name, f"{epoch}.jpg"), cl)
-            save_images(ema_sampled_images, airfoil_x, os.path.join("results", args.run_name, f"{epoch}_ema.jpg"), cl)
+            save_images_conditional(sampled_images, airfoil_x, os.path.join("results", args.run_name, f"{epoch}.jpg"), cl)
+            save_images_conditional(ema_sampled_images, airfoil_x, os.path.join("results", args.run_name, f"{epoch}_ema.jpg"), cl)
             torch.save(model.state_dict(), os.path.join("models", args.run_name, f"ckpt.pt"))
             torch.save(ema_model.state_dict(), os.path.join("models", args.run_name, f"ema_ckpt.pt"))
             torch.save(optimizer.state_dict(), os.path.join("models", args.run_name, f"optim.pt"))
@@ -217,6 +226,8 @@ def launch():
     parser.add_argument('--epochs', type=int, default=10001)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--num_airfoil_points', type=int, default=100)
+    parser.add_argument('--latent_dim', type=int, default=200)
+    parser.add_argument('--vae_model_path', type=str, default='vae_epoch_200.pt')
     parser.add_argument('--cond_dim', type=int, default=1)
     parser.add_argument('--dataset_path', type=str, default="coord_seligFmt/")
     parser.add_argument('--device', type=str, default="cuda")

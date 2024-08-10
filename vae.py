@@ -111,7 +111,7 @@ def launch():
     
     parser.add_argument('--dataset_path', type=str, default='coord_seligFmt/')
     parser.add_argument('--num_airfoil_points', type=int, default=100)
-    parser.add_argument('--latent_dim', type=int, default=100)
+    parser.add_argument('--latent_dim', type=int, default=200)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--epochs', type=int, default=201)
     parser.add_argument('--batch_size', type=int, default=32)

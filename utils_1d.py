@@ -44,7 +44,6 @@ def save_images_conditional(airfoils,airfoil_x, path, cl, num_cols=4):
     
     axs = axs.flatten()
 
-
     for i in range(num_airfoils):
         ax = axs[i]
         airfoil = airfoils[i].cpu().numpy()

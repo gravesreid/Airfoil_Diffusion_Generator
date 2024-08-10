@@ -7,7 +7,7 @@ from utils_1d import *
 from vae import *
 
 airfoil_dim = 200
-latent_dim = 100
+latent_dim = 200
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
