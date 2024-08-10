@@ -121,29 +121,29 @@ class Up(nn.Module):
         return x + emb
 
 class UNet(nn.Module):
-    def __init__(self, c_in=1, c_out=1, time_dim=256, device="cuda"):
+    def __init__(self, c_in=1, c_out=1, time_dim=256, base_dim=8, dim_mults=[1,2,4,8], device="cuda"):
         super().__init__()
         self.device = device
         self.time_dim = time_dim
-        self.inc = DoubleConv(c_in, 64)
-        self.down1 = Down(64, 128, time_dim)
-        self.sa1 = SelfAttention(128)
-        self.down2 = Down(128, 256, time_dim)
-        self.sa2 = SelfAttention(256)
-        self.down3 = Down(256, 256, time_dim)
-        self.sa3 = SelfAttention(256)
+        self.inc = DoubleConv(c_in, base_dim*dim_mults[0])
+        self.down1 = Down(base_dim*dim_mults[0], base_dim*dim_mults[1], time_dim)
+        self.sa1 = SelfAttention(base_dim*dim_mults[1])
+        self.down2 = Down(base_dim*dim_mults[1], base_dim*dim_mults[2], time_dim)
+        self.sa2 = SelfAttention(base_dim*dim_mults[2])
+        self.down3 = Down(base_dim*dim_mults[2], base_dim*dim_mults[2], time_dim)
+        self.sa3 = SelfAttention(base_dim*dim_mults[2])
 
-        self.bot1 = DoubleConv(256, 512)
-        self.bot2 = DoubleConv(512, 512)
-        self.bot3 = DoubleConv(512, 256)
+        self.bot1 = DoubleConv(base_dim*dim_mults[2], base_dim*dim_mults[3])
+        self.bot2 = DoubleConv(base_dim*dim_mults[3], base_dim*dim_mults[3])
+        self.bot3 = DoubleConv(base_dim*dim_mults[3], base_dim*dim_mults[2])
 
-        self.up1 = Up(512, 128, time_dim)
-        self.sa4 = SelfAttention(128)
-        self.up2 = Up(256, 64, time_dim)
-        self.sa5 = SelfAttention(64)
-        self.up3 = Up(128, 64, time_dim)
-        self.sa6 = SelfAttention(64)
-        self.outc = nn.Conv1d(64, c_out, kernel_size=1)
+        self.up1 = Up(base_dim*dim_mults[3], base_dim*dim_mults[1], time_dim)
+        self.sa4 = SelfAttention(base_dim*dim_mults[1])
+        self.up2 = Up(base_dim*dim_mults[2], base_dim*dim_mults[0], time_dim)
+        self.sa5 = SelfAttention(base_dim*dim_mults[0])
+        self.up3 = Up(base_dim*dim_mults[1], base_dim*dim_mults[0], time_dim)
+        self.sa6 = SelfAttention(base_dim*dim_mults[0])
+        self.outc = nn.Conv1d(base_dim*dim_mults[0], c_out, kernel_size=1)
 
     def pos_encoding(self, t, channels):
         inv_freq = 1.0 / (

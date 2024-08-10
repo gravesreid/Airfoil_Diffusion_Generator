@@ -9,13 +9,13 @@ from torch.utils.data import DataLoader
 import math
 
 class Diffusion:
-    def __init__(self, noise_steps=500, beta_start=1e-4, beta_end=0.02, num_airfoil_points=200, device="cuda"):
+    def __init__(self, noise_steps=500, beta_start=1e-7, beta_end=1e-6, num_airfoil_points=200, device="cuda"):
         self.noise_steps = noise_steps
         self.beta_start = beta_start
         self.beta_end = beta_end
 
-        #self.beta = self.prepare_noise_schedule().to(device)
-        self.beta = self._cosine_variance_schedule(noise_steps).to(device)
+        self.beta = self.prepare_noise_schedule().to(device)
+        #self.beta = self._cosine_variance_schedule(noise_steps).to(device)
         self.alpha = 1. - self.beta
         self.alpha_hat = torch.cumprod(self.alpha, dim=0)
 
@@ -97,7 +97,7 @@ def main():
     num_airfoil_points = 100  # Assuming 100 points per side, so 200 total
 
     # Initialize dataset and dataloader
-    airfoil_path = '/home/reid/Projects/Airfoil_Diffusion/denoising-diffusion-pytorch/coord_seligFmt'
+    airfoil_path = 'coord_seligFmt'
     dataset = AirfoilDataset(airfoil_path, num_points_per_side=100)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
     
@@ -110,7 +110,7 @@ def main():
     airfoil_x = dataset.get_x()
     
     # Visualize the noising process
-    n_timesteps_to_visualize = 100  # Number of timesteps to visualize
+    n_timesteps_to_visualize = 50  # Number of timesteps to visualize
     timesteps_to_visualize = torch.linspace(0, noise_steps - 1, n_timesteps_to_visualize, dtype=torch.long).to(device)
     
     noised_airfoils = []
