@@ -72,22 +72,26 @@ def train(args):
     
     # Update the model initialization to match the modified architecture
     model = VAE(args.num_airfoil_points*2, args.latent_dim).to(device)
+
+    total_loss = []
     
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     for epoch in range(args.epochs):
         model.train()
         pbar = tqdm(dataloader)
+        epoch_loss = 0
         for i, data in enumerate(pbar):
             airfoil = data['train_coords_y'].float().to(device)  # Use 'train_coords' which is the reshaped 2D data
             optimizer.zero_grad()
             recon_airfoil, mu, logvar = model(airfoil)
             
             # Calculate the loss
-            kl_loss = .1 * kl_divergence(mu, logvar)
-            recon_loss = 200 * F.mse_loss(recon_airfoil, airfoil)
+            kl_loss = .01 * kl_divergence(mu, logvar)
+            recon_loss = 100 * F.mse_loss(recon_airfoil, airfoil)
             loss = kl_loss + recon_loss
             
             loss.backward()
+            epoch_loss += loss.item()
             optimizer.step()
             pbar.set_postfix({'Loss': loss.item(), 'KL Loss': kl_loss.item(), 'Recon Loss': recon_loss.item()})
             
@@ -97,6 +101,14 @@ def train(args):
         
         if epoch % args.save_interval == 0:
             torch.save(model.state_dict(), f"vae_epoch_{epoch}.pt")
+        epoch_loss /= len(dataloader)
+        total_loss.append(epoch_loss)
+    #plot losses
+    plt.plot(total_loss)
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Loss vs Epoch')
+    plt.show()
 
 def launch():
     import argparse
@@ -111,7 +123,7 @@ def launch():
     
     parser.add_argument('--dataset_path', type=str, default='coord_seligFmt/')
     parser.add_argument('--num_airfoil_points', type=int, default=100)
-    parser.add_argument('--latent_dim', type=int, default=200)
+    parser.add_argument('--latent_dim', type=int, default=100)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--epochs', type=int, default=201)
     parser.add_argument('--batch_size', type=int, default=32)

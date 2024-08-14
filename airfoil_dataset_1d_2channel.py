@@ -22,6 +22,10 @@ class AirfoilDataset(Dataset):
                 self.diffusion_training_coordinates = cache['diffusion_training_coordinates']
                 self.CD = cache['CD']
                 self.CL = cache['CL']
+                self.max_camber = cache['max_camber']
+                self.max_thickness = cache['max_thickness']
+                self.TE_thickness = cache['TE_thickness']
+                self.TE_angle = cache['TE_angle']
         else:
             # Convert airfoils to airfoil objects
             self.airfoils = []
@@ -81,19 +85,35 @@ class AirfoilDataset(Dataset):
 
             self.CD = []
             self.CL = []
+            self.max_camber = []
+            self.max_thickness = []
+            self.TE_thickness = []
+            self.TE_angle = []
             for airfoil in self.repanelized_airfoils:
                 print(f"Calculating CD and CL for airfoil {airfoil.name}")
                 coef = airfoil.get_aero_from_neuralfoil(alpha=0, Re=1e6, mach=0.0)
                 print(f"CL: {coef['CL'][0]}, CD: {coef['CD'][0]}")
+                max_camber = airfoil.max_camber()
+                max_thickness = airfoil.max_thickness()
+                TE_thickness = airfoil.TE_thickness()
+                TE_angle = airfoil.TE_angle()
                 self.CL.append(coef['CL'][0])
                 self.CD.append(coef['CD'][0])
+                self.max_camber.append(max_camber)
+                self.max_thickness.append(max_thickness)
+                self.TE_thickness.append(TE_thickness)
+                self.TE_angle.append(TE_angle)
 
             # Save to cache
             cache = {
                 'coordinates': self.coordinates,
                 'diffusion_training_coordinates': self.diffusion_training_coordinates,
                 'CD': self.CD,
-                'CL': self.CL
+                'CL': self.CL,
+                'max_camber': self.max_camber,
+                'max_thickness': self.max_thickness,
+                'TE_thickness': self.TE_thickness,
+                'TE_angle': self.TE_angle
             }
             with open(self.cache_file, 'wb') as f:
                 pickle.dump(cache, f)
@@ -105,60 +125,86 @@ class AirfoilDataset(Dataset):
         coordinates = self.coordinates[idx]
         train_coords = self.diffusion_training_coordinates[idx]
         train_coords_y = train_coords[:, 1]  # only pass the y coordinates to the model
-        train_coords_x = train_coords[:, 0]  # only pass the x coordinates to the model
         cd = self.CD[idx]
         cl = self.CL[idx]
+        max_camber = self.max_camber[idx]
+        max_thickness = self.max_thickness[idx]
+        TE_thickness = self.TE_thickness[idx]
+        TE_angle = self.TE_angle[idx]
+
+        # Separate the y-coordinates into two parts
+        train_coords_y_upper = train_coords_y[:self.num_points_per_side]  # First 100 points
+        train_coords_y_lower = train_coords_y[self.num_points_per_side:]  # Second 100 points
+
+        # Stack them to create a 2-channel tensor
+        train_coords_y = np.stack([train_coords_y_upper, train_coords_y_lower], axis=0)
 
         # Convert data to the required shape: (channels, data)
-        train_coords = train_coords.T  # Transpose to shape (1, data_points)
-        train_coords_y = train_coords_y.T  # Transpose to shape (1, data_points)
-
         coordinates = coordinates.T  # Transpose to shape (2, data_points)
 
         return {
-            'train_coords': train_coords,
-            'train_coords_y': train_coords_y,
+            'train_coords_y': torch.tensor(train_coords_y, dtype=torch.float32),
             'CD': cd,
-            'CL': cl
+            'CL': cl,
+            'max_camber': max_camber,
+            'max_thickness': max_thickness,
+            'TE_thickness': TE_thickness,
+            'TE_angle': TE_angle
         }
+
     def get_x(self):
         return self.diffusion_training_coordinates[0][:, 0]
 
-def plot_airfoil(airfoil):
+def plot_airfoil(airfoil_x, airfoil):
     fig, ax = plt.subplots()
-    ax.plot(airfoil[0,:], airfoil[1,:], color='black')
+    y_coords = torch.cat([airfoil[0], airfoil[1]])
+    ax.plot(airfoil_x, y_coords, color='black')
     ax.set_aspect('equal')
     ax.axis('off')
     plt.show()
 
-def plot_upper_and_lower_half(upper_half, lower_half):
-    fig, ax = plt.subplots()
-    ax.plot(upper_half[0,:], upper_half[1,:], color='black')
-    ax.plot(lower_half[0,:], lower_half[1,:], color='black')
-    ax.set_aspect('equal')
-    ax.axis('off')
-    plt.show()
 
 # Usage example
 if __name__ == '__main__':
     airfoil_path = '/home/reid/Projects/Airfoil_Diffusion/denoising-diffusion-pytorch/coord_seligFmt'
     dataset = AirfoilDataset(airfoil_path, num_points_per_side=100)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
+    airfoil_x = dataset.get_x()
     # test dataloader
     for i, data in enumerate(dataloader):
         print(f"Batch {i}")
-        print(f"Coordinates shape: {data['coordinates'].shape}")
-        print(f"Train coordinates shape: {data['train_coords'].shape}")
+        print(f"Train coordinates shape: {data['train_coords_y'].shape}")
         print(f"CD: {data['CD']}")
         print(f"CL: {data['CL']}")
-        plot_airfoil(data['coordinates'][0])
-        plot_airfoil(data['train_coords'][0])
-        plot_upper_and_lower_half(data['upper_coord'][0], data['lower_coord'][0])
+        print(f"Max Camber: {data['max_camber']}")
+        print(f"Max Thickness: {data['max_thickness']}")
+        plot_airfoil(airfoil_x,data['train_coords_y'][0])
         break
     airfoil_sample = dataset[0]
-    print("Coordinates shape:", airfoil_sample['coordinates'].shape)
-    print("Upper coordinates shape:", airfoil_sample['upper_coord'].shape)
-    print("Lower coordinates shape:", airfoil_sample['lower_coord'].shape)
-    print("Train coordinates shape:", airfoil_sample['train_coords'].shape)
+    print("Train coordinates shape:", airfoil_sample['train_coords_y'].shape)
+    print("airfoil points:", airfoil_sample['train_coords_y'])
     print("CD:", airfoil_sample['CD'])
     print("CL:", airfoil_sample['CL'])
+    print("Max Camber:", airfoil_sample['max_camber'])
+    print("Max Thickness:", airfoil_sample['max_thickness'])
+    print("TE Thickness:", airfoil_sample['TE_thickness'])
+    print("TE Angle:", airfoil_sample['TE_angle'])
+
+
+    # plotting histograms of CD, CL, Max Camber, and Max Thickness
+    fig, axs = plt.subplots(3, 2, figsize=(15, 15))
+    axs = axs.flatten()
+    axs[0].hist(dataset.CD, bins=20)
+    axs[0].set_title("CD")
+    axs[1].hist(dataset.CL, bins=20)
+    axs[1].set_title("CL")
+    axs[2].hist(dataset.max_camber, bins=20)
+    axs[2].set_title("Max Camber")
+    axs[3].hist(dataset.max_thickness, bins=20)
+    axs[3].set_title("Max Thickness")
+    axs[4].hist(dataset.TE_thickness, bins=20)
+    axs[4].set_title("TE Thickness")
+    axs[5].hist(dataset.TE_angle, bins=20)
+    axs[5].set_title("TE Angle")
+    plt.tight_layout()
+    plt.show()

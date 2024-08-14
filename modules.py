@@ -252,6 +252,10 @@ class UNet_conditional(nn.Module):
         x = self.sa6(x)
         output = self.outc(x)
         return output
+    
+
+
+
 
 
 
