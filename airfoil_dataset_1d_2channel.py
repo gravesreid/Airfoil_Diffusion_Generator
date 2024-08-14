@@ -22,6 +22,7 @@ class AirfoilDataset(Dataset):
                 self.diffusion_training_coordinates = cache['diffusion_training_coordinates']
                 self.CD = cache['CD']
                 self.CL = cache['CL']
+                self.CM = cache['CM']
                 self.max_camber = cache['max_camber']
                 self.max_thickness = cache['max_thickness']
                 self.TE_thickness = cache['TE_thickness']
@@ -85,6 +86,7 @@ class AirfoilDataset(Dataset):
 
             self.CD = []
             self.CL = []
+            self.CM = []
             self.max_camber = []
             self.max_thickness = []
             self.TE_thickness = []
@@ -99,6 +101,7 @@ class AirfoilDataset(Dataset):
                 TE_angle = airfoil.TE_angle()
                 self.CL.append(coef['CL'][0])
                 self.CD.append(coef['CD'][0])
+                self.CM.append(coef['CM'][0])
                 self.max_camber.append(max_camber)
                 self.max_thickness.append(max_thickness)
                 self.TE_thickness.append(TE_thickness)
@@ -110,6 +113,7 @@ class AirfoilDataset(Dataset):
                 'diffusion_training_coordinates': self.diffusion_training_coordinates,
                 'CD': self.CD,
                 'CL': self.CL,
+                'CM': self.CM,
                 'max_camber': self.max_camber,
                 'max_thickness': self.max_thickness,
                 'TE_thickness': self.TE_thickness,
@@ -127,6 +131,7 @@ class AirfoilDataset(Dataset):
         train_coords_y = train_coords[:, 1]  # only pass the y coordinates to the model
         cd = self.CD[idx]
         cl = self.CL[idx]
+        cm = self.CM[idx]
         max_camber = self.max_camber[idx]
         max_thickness = self.max_thickness[idx]
         TE_thickness = self.TE_thickness[idx]
@@ -146,6 +151,7 @@ class AirfoilDataset(Dataset):
             'train_coords_y': torch.tensor(train_coords_y, dtype=torch.float32),
             'CD': cd,
             'CL': cl,
+            'CM': cm,
             'max_camber': max_camber,
             'max_thickness': max_thickness,
             'TE_thickness': TE_thickness,
@@ -192,7 +198,7 @@ if __name__ == '__main__':
 
 
     # plotting histograms of CD, CL, Max Camber, and Max Thickness
-    fig, axs = plt.subplots(3, 2, figsize=(15, 15))
+    fig, axs = plt.subplots(4, 2, figsize=(15, 15))
     axs = axs.flatten()
     axs[0].hist(dataset.CD, bins=20)
     axs[0].set_title("CD")
@@ -206,5 +212,7 @@ if __name__ == '__main__':
     axs[4].set_title("TE Thickness")
     axs[5].hist(dataset.TE_angle, bins=20)
     axs[5].set_title("TE Angle")
+    axs[6].hist(dataset.CM, bins=20)
+    axs[6].set_title("CM")
     plt.tight_layout()
     plt.show()

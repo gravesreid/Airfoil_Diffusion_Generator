@@ -37,7 +37,9 @@ def plot_images(airfoils, airfoil_x):
 
 def save_images_conditional(airfoils,airfoil_x, path, conditioning, num_cols=4):
     # input tensor cl is cl = torch.linspace(-0.2, 1.5, 5).unsqueeze(1).to(device) convert to numpy
+    print(f'conditioning shape: {conditioning.shape}')
     cl = conditioning[:,0].cpu().numpy()
+    print(f'cl shape: {cl.shape}')
     cd = conditioning[:,1].cpu().numpy()
     max_camber = conditioning[:,2].cpu().numpy()
     max_thickness = conditioning[:,3].cpu().numpy()
@@ -52,11 +54,11 @@ def save_images_conditional(airfoils,airfoil_x, path, conditioning, num_cols=4):
         airfoil = airfoils[i].cpu()
         y_coords = torch.cat([airfoil[0], airfoil[1]])
         ax.scatter(airfoil_x, y_coords, color='black')
-        cl_string = f'cl={cl[i][0]:.2f}'
-        cd_string = f'cd={cd[i][0]:.2f}'
-        max_camber_string = f'max_camber={max_camber[i][0]:.2f}'
-        max_thickness_string = f'max_thickness={max_thickness[i][0]:.2f}'
-        ax.set_title(f'Airfoil {i+1}, {cl_string}, {cd_string}, {max_camber_string}, {max_thickness_string}')
+        cl_string = f'cl={cl[i]:.2f}'
+        cd_string = f'cd={cd[i]:.2f}'
+        max_camber_string = f'max_camber={max_camber[i]:.2f}'
+        max_thickness_string = f'max_thickness={max_thickness[i]:.2f}'
+        ax.set_title(f'Airfoil {i+1}, {cl_string}, {cd_string}, \n {max_camber_string},\n {max_thickness_string}')
         ax.set_aspect('equal')
         ax.axis('off')
 
@@ -69,17 +71,18 @@ def save_images_conditional(airfoils,airfoil_x, path, conditioning, num_cols=4):
     plt.close(fig)
 
 def save_images(airfoils,airfoil_x, path, num_cols=4):
+    # input tensor cl is cl = torch.linspace(-0.2, 1.5, 5).unsqueeze(1).to(device) convert to numpy
     num_airfoils = airfoils.shape[0]
     num_rows = (num_airfoils + num_cols - 1) // num_cols  # Ensure we cover all airfoils
     fig, axs = plt.subplots(num_rows, num_cols, figsize=(num_cols * 5, num_rows * 5))
     
     axs = axs.flatten()
 
-
     for i in range(num_airfoils):
         ax = axs[i]
-        airfoil = airfoils[i].cpu().numpy()
-        ax.scatter(airfoil_x, airfoil[0,:], color='black')
+        airfoil = airfoils[i].cpu()
+        y_coords = torch.cat([airfoil[0], airfoil[1]])
+        ax.scatter(airfoil_x, y_coords, color='black')
         ax.set_title(f'Airfoil {i+1}')
         ax.set_aspect('equal')
         ax.axis('off')

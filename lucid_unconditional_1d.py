@@ -58,14 +58,7 @@ def train(args):
 
         for i, airfoil in enumerate(pbar):
             train_coords = airfoil['train_coords_y'].to(device).float()
-            cl = airfoil['CL'].to(device).float().unsqueeze(1)
-            cd = airfoil['CD'].to(device).float().unsqueeze(1)
-            cm = airfoil['CM'].to(device).float().unsqueeze(1)
-            max_camber = airfoil['max_camber'].to(device).float().unsqueeze(1)
-            max_thickness = airfoil['max_thickness'].to(device).float().unsqueeze(1)
-            TE_thickness = airfoil['TE_thickness'].to(device).float().unsqueeze(1)
-            TE_angle = airfoil['TE_angle'].to(device).float().unsqueeze(1)
-            conditioning = torch.cat([cl, cd, cm, max_camber, max_thickness], dim=1)
+            conditioning = None 
 
             # Pass train coords through VAE
             t = torch.randint(0, diffusion.num_timesteps, (train_coords.shape[0],), device=device).long()
@@ -121,14 +114,8 @@ def train(args):
         logging.info(f"Epoch {epoch} completed. Learning rate: {current_lr}, epochs no improvement: {epochs_no_improve}, best loss: {best_loss}")
 
         if epoch % 100 == 0:
-            cl = torch.linspace(0.01, 1.2, 5).unsqueeze(1).to(device)
-            cd = torch.linspace(0.0001, 0.02, 5).unsqueeze(1).to(device)
-            cm = torch.linspace(-0.1, 0.05, 5).unsqueeze(1).to(device)
-            max_camber = torch.linspace(0.001, 0.1, 5).unsqueeze(1).to(device)
-            max_thickness = torch.linspace(0.08, 0.3, 5).unsqueeze(1).to(device)
-            combined = torch.cat([cl, cd, cm, max_camber, max_thickness], dim=1)
-            sampled_images = diffusion.sample(batch_size=5, conditioning=combined)
-            save_images_conditional(sampled_images, airfoil_x, os.path.join("results", args.run_name, f"{epoch}.jpg"), combined)
+            sampled_images = diffusion.sample(batch_size=5, conditioning=None)
+            save_images(sampled_images, airfoil_x, os.path.join("results", args.run_name, f"{epoch}.jpg"))
             torch.save(model.state_dict(), os.path.join("models", args.run_name, f"ckpt.pt"))
             torch.save(optimizer.state_dict(), os.path.join("models", args.run_name, f"optim.pt"))
 
@@ -151,7 +138,7 @@ def train(args):
 def launch():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--run_name', type=str, default="lucid_run_10")
+    parser.add_argument('--run_name', type=str, default="lucid_unconditional_run_1")
     parser.add_argument('--epochs', type=int, default=5001)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--num_airfoil_points', type=int, default=100)
