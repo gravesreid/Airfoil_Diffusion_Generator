@@ -13,7 +13,7 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.signal import savgol_filter
 
 vae_path = "/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/vae_epoch_200.pt"
-diffusion_path = "/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/models/lucid_unconditional_run_1/best_model.pt"
+diffusion_path = "/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/models/lucid_run_10/best_model.pt"
 
 # function to smooth out y coordinates
 def smooth_y_coords(y_coords, method='moving_average', window_size=3, **kwargs):
@@ -52,7 +52,7 @@ conditioning_cl = torch.tensor([.25]).to(device).unsqueeze(1)
 conditioning_cd = torch.tensor([.01]).to(device).unsqueeze(1)
 conditioning_cm = torch.tensor([0.0]).to(device).unsqueeze(1)
 conditioning_max_camber = torch.tensor([.1]).to(device).unsqueeze(1)
-conditioning_max_thickness = torch.tensor([.2]).to(device).unsqueeze(1)
+conditioning_max_thickness = torch.tensor([.15]).to(device).unsqueeze(1)
 combined_conditioning = torch.cat([conditioning_cl, conditioning_cd, conditioning_cm, conditioning_max_camber, conditioning_max_thickness], dim=1)
 print(f'conditioning shape: {conditioning_cl.shape}')
 
@@ -78,7 +78,7 @@ airfoil_x = dataset.get_x()
 # make conditioning tensor of shape (n_samples, 1)
 conditioning_cl = conditioning_cl.repeat(n_samples, 1)
 combined_conditioning = combined_conditioning.repeat(n_samples, 1)
-generated_y = diffusion.sample(batch_size=n_samples, conditioning=None)
+generated_y = diffusion.sample(batch_size=n_samples, conditioning=combined_conditioning)
 y_coords = torch.cat([generated_y[0], generated_y[1]])
 
 

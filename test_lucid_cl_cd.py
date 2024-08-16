@@ -13,7 +13,7 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.signal import savgol_filter
 
 vae_path = "/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/vae_epoch_200.pt"
-diffusion_path = "/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/models/lucid_unconditional_run_1/best_model.pt"
+diffusion_path = "/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/models/lucid_cl_cd_run_1/best_model.pt"
 
 # function to smooth out y coordinates
 def smooth_y_coords(y_coords, method='moving_average', window_size=3, **kwargs):
@@ -39,7 +39,7 @@ def smooth_y_coords(y_coords, method='moving_average', window_size=3, **kwargs):
 # Parameters
 airfoil_dim = 200
 latent_dim = 100
-n_samples = 1600
+n_samples = 16
 unet_dim = 12
 if torch.backends.mps.is_available():
     device = torch.device('mps')
@@ -48,12 +48,9 @@ elif torch.cuda.is_available():
 else:
     device = torch.device("cpu")
 print(f"Using device: {device}")
-conditioning_cl = torch.tensor([.25]).to(device).unsqueeze(1)
-conditioning_cd = torch.tensor([.01]).to(device).unsqueeze(1)
-conditioning_cm = torch.tensor([0.0]).to(device).unsqueeze(1)
-conditioning_max_camber = torch.tensor([.1]).to(device).unsqueeze(1)
-conditioning_max_thickness = torch.tensor([.2]).to(device).unsqueeze(1)
-combined_conditioning = torch.cat([conditioning_cl, conditioning_cd, conditioning_cm, conditioning_max_camber, conditioning_max_thickness], dim=1)
+conditioning_cl = torch.tensor([2.0]).to(device).unsqueeze(1)
+conditioning_cd = torch.tensor([.02]).to(device).unsqueeze(1)
+combined_conditioning = torch.cat([conditioning_cl, conditioning_cd], dim=1)
 print(f'conditioning shape: {conditioning_cl.shape}')
 
 # Load the trained VAE model
@@ -62,7 +59,7 @@ vae_model.load_state_dict(torch.load(vae_path, weights_only=True))
 vae_model.eval()
 
 # Load the trained diffusion model
-diffusion_model = Unet1DConditional(unet_dim, cond_dim=5, channels=2, dim_mults=(1,2,4)).to(device)
+diffusion_model = Unet1DConditional(unet_dim, cond_dim=2, channels=2, dim_mults=(1,2,4)).to(device)
 diffusion_model.load_state_dict(torch.load(diffusion_path, weights_only=True))
 diffusion_model.eval()
 diffusion = GaussianDiffusion1D(diffusion_model, seq_length=latent_dim).to(device)
@@ -76,9 +73,8 @@ airfoil_x = dataset.get_x()
 
 # Generate latent vectors with diffusion
 # make conditioning tensor of shape (n_samples, 1)
-conditioning_cl = conditioning_cl.repeat(n_samples, 1)
 combined_conditioning = combined_conditioning.repeat(n_samples, 1)
-generated_y = diffusion.sample(batch_size=n_samples, conditioning=None)
+generated_y = diffusion.sample(batch_size=n_samples, conditioning=combined_conditioning)
 y_coords = torch.cat([generated_y[0], generated_y[1]])
 
 
@@ -198,59 +194,3 @@ plt.xlabel('t-SNE Dimension 1')
 plt.ylabel('t-SNE Dimension 2')
 plt.legend()
 plt.show()
-
-def matrix_sqrt(m):
-    # Regularize the covariance matrix to avoid numerical instability
-    eps = 1e-6
-    m = m + torch.eye(m.size(0)).to(m.device) * eps
-    
-    # Perform eigenvalue decomposition
-    eigvals, eigvecs = torch.linalg.eigh(m)
-    
-    # Ensure eigenvalues are non-negative (for numerical stability)
-    eigvals = torch.clamp(eigvals, min=0)
-    
-    # Take the square root of the eigenvalues
-    sqrt_eigvals = torch.sqrt(eigvals)
-    
-    # Reconstruct the square root matrix
-    sqrtm = eigvecs @ torch.diag(sqrt_eigvals) @ eigvecs.T
-    
-    return sqrtm
-
-def calculate_fid(mu1, sigma1, mu2, sigma2, eps=1e-6):
-    # Compute the difference in means
-    diff = mu1 - mu2
-    print(f'diff: {diff}')
-    
-    # Product of covariances and compute square root
-    covmean = matrix_sqrt(sigma1 @ sigma2)
-    print(f'covmean: {covmean}')
-    
-    # Numerical stability
-    if not torch.isfinite(covmean).all():
-        print(f'FID score is not finite')
-        covmean = covmean + torch.eye(sigma1.shape[0]).to(covmean.device) * eps
-        print(f'covmean: {covmean}')
-
-    covmean = torch.real(covmean)
-    print(f'covmean: {covmean}')
-    
-    # FID formula
-    fid = diff.dot(diff) + torch.trace(sigma1 + sigma2 - 2 * covmean)
-    print(f'fid: {fid}')
-    return fid.item()
-
-
-# Calculate the mean and covariance of the UIUC latent vectors
-uiuc_latent_mean = torch.mean(uiuc_latent_vectors, dim=0)
-uiuc_latent_cov = torch.cov(uiuc_latent_vectors.T)
-
-# Calculate the mean and covariance of the generated latent vectors
-generated_latent_mean = torch.mean(latent_vectors, dim=0)
-generated_latent_cov = torch.cov(latent_vectors.T)
-
-# Calculate FID
-fid_score = calculate_fid(uiuc_latent_mean, uiuc_latent_cov, generated_latent_mean, generated_latent_cov)
-
-print(f'FID Score: {fid_score}')
