@@ -27,6 +27,7 @@ class AirfoilDataset(Dataset):
                 self.max_thickness = cache['max_thickness']
                 self.TE_thickness = cache['TE_thickness']
                 self.TE_angle = cache['TE_angle']
+                self.names = cache['names']
         else:
             # Convert airfoils to airfoil objects
             self.airfoils = []
@@ -91,8 +92,10 @@ class AirfoilDataset(Dataset):
             self.max_thickness = []
             self.TE_thickness = []
             self.TE_angle = []
+            self.names = []
             for airfoil in self.repanelized_airfoils:
                 print(f"Calculating CD and CL for airfoil {airfoil.name}")
+                self.names.append(airfoil.name)
                 coef = airfoil.get_aero_from_neuralfoil(alpha=0, Re=1e6, mach=0.0)
                 print(f"CL: {coef['CL'][0]}, CD: {coef['CD'][0]}")
                 max_camber = airfoil.max_camber()
@@ -117,7 +120,8 @@ class AirfoilDataset(Dataset):
                 'max_camber': self.max_camber,
                 'max_thickness': self.max_thickness,
                 'TE_thickness': self.TE_thickness,
-                'TE_angle': self.TE_angle
+                'TE_angle': self.TE_angle,
+                'names': self.names
             }
             with open(self.cache_file, 'wb') as f:
                 pickle.dump(cache, f)
@@ -136,6 +140,7 @@ class AirfoilDataset(Dataset):
         max_thickness = self.max_thickness[idx]
         TE_thickness = self.TE_thickness[idx]
         TE_angle = self.TE_angle[idx]
+        name = self.names[idx]
 
         # Separate the y-coordinates into two parts
         train_coords_y_upper = train_coords_y[:self.num_points_per_side]  # First 100 points
@@ -149,13 +154,15 @@ class AirfoilDataset(Dataset):
 
         return {
             'train_coords_y': torch.tensor(train_coords_y, dtype=torch.float32),
+            'coordinates': torch.tensor(coordinates, dtype=torch.float32),
             'CD': cd,
             'CL': cl,
             'CM': cm,
             'max_camber': max_camber,
             'max_thickness': max_thickness,
             'TE_thickness': TE_thickness,
-            'TE_angle': TE_angle
+            'TE_angle': TE_angle,
+            'name': name
         }
 
     def get_x(self):

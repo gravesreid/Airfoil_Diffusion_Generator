@@ -16,9 +16,23 @@ import math
 import matplotlib.pyplot as plt
 import aerosandbox as asb
 from LucidDiffusion import *
+import pickle
 
 logging.basicConfig(format="%(asctime)s - %(levelname)s: %(message)s", level=logging.INFO, datefmt="%I:%M:%S")
 
+# load uiuc airfoil data
+uiuc_path = '/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/uiuc_airfoils.pkl'
+
+with open(uiuc_path, 'rb') as f:
+    uiuc_data = pickle.load(f)
+    uiuc_cl_mean = uiuc_data['uiuc_cl_mean']
+    uiuc_cl_std = uiuc_data['uiuc_cl_std']
+    uiuc_cd_mean = uiuc_data['uiuc_cd_mean']
+    uiuc_cd_std = uiuc_data['uiuc_cd_std']
+    uiuc_max_cl = uiuc_data['uiuc_max_cl']
+    uiuc_max_cd = uiuc_data['uiuc_max_cd']
+    uiuc_min_cl = uiuc_data['uiuc_min_cl']
+    uiuc_min_cd = uiuc_data['uiuc_min_cd']
 
 def save_images_conditional(airfoils,airfoil_x, path, conditioning, num_cols=4):
     # input tensor cl is cl = torch.linspace(-0.2, 1.5, 5).unsqueeze(1).to(device) convert to numpy
@@ -89,6 +103,15 @@ def train(args):
             train_coords = airfoil['train_coords_y'].to(device).float()
             cl = airfoil['CL'].to(device).float().unsqueeze(1)
             cd = airfoil['CD'].to(device).float().unsqueeze(1)
+            # normalize cl and cd
+            cl = (cl - uiuc_min_cl) / (uiuc_max_cl - uiuc_min_cl)
+            #cd = (cd - uiuc_min_cd) / (uiuc_max_cd - uiuc_min_cd)
+            # standardize cl and cd
+            #cl = (cl - uiuc_cl_mean) / uiuc_cl_std
+            cd = (cd - uiuc_cd_mean) / uiuc_cd_std
+            # shift mean away from 0
+            cl = cl 
+            cd = cd 
             conditioning = torch.cat([cl, cd], dim=1)
 
             # Pass train coords through VAE
@@ -145,8 +168,8 @@ def train(args):
         logging.info(f"Epoch {epoch} completed. Learning rate: {current_lr}, epochs no improvement: {epochs_no_improve}, best loss: {best_loss}")
 
         if epoch % 100 == 0:
-            cl = torch.linspace(0.01, 1.2, 5).unsqueeze(1).to(device)
-            cd = torch.linspace(0.0001, 0.02, 5).unsqueeze(1).to(device)
+            cl = torch.linspace(0, 1, 5).unsqueeze(1).to(device)
+            cd = torch.linspace(-1, 1, 5).unsqueeze(1).to(device)
             combined = torch.cat([cl, cd], dim=1)
             sampled_images = diffusion.sample(batch_size=5, conditioning=combined)
             save_images_conditional(sampled_images, airfoil_x, os.path.join("results", args.run_name, f"{epoch}.jpg"), combined)
@@ -172,7 +195,7 @@ def train(args):
 def launch():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--run_name', type=str, default="lucid_cl_cd_run_1")
+    parser.add_argument('--run_name', type=str, default="lucid_cl_normalized_cd_standardized_run_2")
     parser.add_argument('--epochs', type=int, default=5001)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--num_airfoil_points', type=int, default=100)
