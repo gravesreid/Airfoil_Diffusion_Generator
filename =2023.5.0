@@ -1,0 +1,5 @@
+Collecting fsspec
+  Using cached fsspec-2024.6.1-py3-none-any.whl.metadata (11 kB)
+Using cached fsspec-2024.6.1-py3-none-any.whl (177 kB)
+Installing collected packages: fsspec
+Successfully installed fsspec-2024.6.1

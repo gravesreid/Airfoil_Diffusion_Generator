@@ -180,58 +180,59 @@ for airfoil in uiuc_y_coords:
 
 
 # set fontsize for titles and labels
-plt.rcParams.update({'font.size': 18})
+plt.rcParams.update({'font.size': 22})
 
 def plot_coef_hist():
     cl_values = [coef['CL'][0] for coef in airfoil_coef]
     cd_values = [coef['CD'][0] for coef in airfoil_coef]
 
     # Assuming uiuc_cl, uiuc_cd, uiuc_max_camber, and uiuc_max_thickness are already defined
-    fig, axs = plt.subplots(2, 2, figsize=(15, 15))
+    fig, axs = plt.subplots(1, 4, figsize=(25, 8))
     axs = axs.flatten()
 
     # Plot CL Values
     axs[0].hist(cl_values, bins=10, alpha=0.5, label='Generated Airfoils')
     axs[0].hist(uiuc_cl, bins=20, alpha=0.5, label='UIUC Airfoils')
-    axs[0].set_title('CL Values', fontsize=24)
-    axs[0].set_xticks(np.arange(-0.2, 1.75, 0.2))
-    axs[0].tick_params(axis='both', which='major', labelsize=20)
+    axs[0].set_title('CL Values', fontsize=26)
+    axs[0].set_xticks(np.arange(-0.25, 1.75, 0.5))
+    axs[0].tick_params(axis='both', which='major', labelsize=22)
     for spine in axs[0].spines.values():
         spine.set_linewidth(2)
-    axs[0].legend()
+    #axs[0].legend()
 
     # Plot CD Values
     axs[1].hist(cd_values, bins=5, alpha=0.5, label='Generated Airfoils')
     axs[1].hist(uiuc_cd, bins=20, alpha=0.5, label='UIUC Airfoils')
-    axs[1].set_title('CD Values', fontsize=24)
+    axs[1].set_title('CD Values', fontsize=26)
     axs[1].set_xlim(0, 0.03)
     axs[1].set_xticks(np.arange(0.005, 0.04, 0.01))
-    axs[1].tick_params(axis='both', which='major', labelsize=20)
+    axs[1].tick_params(axis='both', which='major', labelsize=22)
     for spine in axs[1].spines.values():
         spine.set_linewidth(2)
-    axs[1].legend()
+    #axs[1].legend()
 
     # Plot Max Camber Values
     axs[2].hist(max_camber_list, bins=10, alpha=0.5, label='Generated Airfoils')
     axs[2].hist(uiuc_max_camber, bins=20, alpha=0.5, label='UIUC Airfoils')
-    axs[2].set_title('Max Camber Values', fontsize=24)
+    axs[2].set_title('Max Camber Values', fontsize=26)
     axs[2].set_xticks(np.arange(0, 0.15, 0.05))
-    axs[2].tick_params(axis='both', which='major', labelsize=20)
+    axs[2].tick_params(axis='both', which='major', labelsize=22)
     for spine in axs[2].spines.values():
         spine.set_linewidth(2)
-    axs[2].legend()
+    #axs[2].legend()
 
     # Plot Max Thickness Values
     axs[3].hist(max_thickness_list, bins=10, alpha=0.5, label='Generated Airfoils')
     axs[3].hist(uiuc_max_thickness, bins=20, alpha=0.5, label='UIUC Airfoils')
-    axs[3].set_title('Max Thickness Values', fontsize=24)
+    axs[3].set_title('Max Thickness Values', fontsize=26)
     axs[3].set_xticks(np.arange(0, 0.5, 0.1))
-    axs[3].tick_params(axis='both', which='major', labelsize=20)
+    axs[3].tick_params(axis='both', which='major', labelsize=22)
     for spine in axs[3].spines.values():
         spine.set_linewidth(2)
-    axs[3].legend()
-
-    plt.tight_layout()
+    
+    fig.legend(['Generated Airfoils', 'UIUC Airfoils'], loc='upper center', bbox_to_anchor=(0.5, .95), ncol=2, fontsize=26)
+    
+    plt.tight_layout(rect=[0, 0, 1, 0.8])
     plt.show()
 plot_coef_hist()
 

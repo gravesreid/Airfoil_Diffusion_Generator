@@ -7,3 +7,4 @@ airfoil_cache.pkl
 simple_diffusion.py
 test_simple_diffusion.py
 *.pt
+*.pkl

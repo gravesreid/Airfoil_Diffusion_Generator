@@ -87,16 +87,16 @@ def train(args):
             max_camber = airfoil['max_camber'].to(device).float().unsqueeze(1)
             max_thickness = airfoil['max_thickness'].to(device).float().unsqueeze(1)
             # normalize the conditioning
-            cl = normalize_conditioning_values(cl, uiuc_min_cl, uiuc_max_cl)
-            cd = normalize_conditioning_values(cd, uiuc_min_cd, uiuc_max_cd)
-            max_camber = normalize_conditioning_values(max_camber, uiuc_min_cl, uiuc_max_cl)
-            max_thickness = normalize_conditioning_values(max_thickness, uiuc_min_cl, uiuc_max_cl)
+            #cl = normalize_conditioning_values(cl, uiuc_min_cl, uiuc_max_cl)
+            #cd = normalize_conditioning_values(cd, uiuc_min_cd, uiuc_max_cd)
+            #max_camber = normalize_conditioning_values(max_camber, uiuc_min_cl, uiuc_max_cl)
+            #max_thickness = normalize_conditioning_values(max_thickness, uiuc_min_cl, uiuc_max_cl)
             # standardize the conditioning
-            #cl = standardize_conditioning_values(cl, uiuc_cl_mean, uiuc_cl_std)
-            #cd = standardize_conditioning_values(cd, uiuc_cd_mean, uiuc_cd_std)
-            #max_camber = standardize_conditioning_values(max_camber, uiuc_cl_mean, uiuc_cl_std)
-            #max_thickness = standardize_conditioning_values(max_thickness, uiuc_cl_mean, uiuc_cl_std)
-            conditioning = torch.cat([cl, cd, cm, max_thickness], dim=1)
+            cl = standardize_conditioning_values(cl, uiuc_cl_mean, uiuc_cl_std)
+            cd = standardize_conditioning_values(cd, uiuc_cd_mean, uiuc_cd_std)
+            max_camber = standardize_conditioning_values(max_camber, uiuc_cl_mean, uiuc_cl_std)
+            max_thickness = standardize_conditioning_values(max_thickness, uiuc_cl_mean, uiuc_cl_std)
+            conditioning = torch.cat([cl, cd, max_camber, max_thickness], dim=1)
 
             # Pass train coords through VAE
             t = torch.randint(0, diffusion.num_timesteps, (train_coords.shape[0],), device=device).long()
@@ -152,10 +152,10 @@ def train(args):
         logging.info(f"Epoch {epoch} completed. Learning rate: {current_lr}, epochs no improvement: {epochs_no_improve}, best loss: {best_loss}")
 
         if epoch % 100 == 0:
-            cl = torch.linspace(0, 1, 5).unsqueeze(1).to(device)
-            cd = torch.linspace(0, 1, 5).unsqueeze(1).to(device)
-            cm = torch.linspace(0, 1, 5).unsqueeze(1).to(device)
-            max_thickness = torch.linspace(0, 1, 5).unsqueeze(1).to(device)
+            cl = torch.linspace(-1, 1, 5).unsqueeze(1).to(device)
+            cd = torch.linspace(-1, 1, 5).unsqueeze(1).to(device)
+            cm = torch.linspace(-1, 1, 5).unsqueeze(1).to(device)
+            max_thickness = torch.linspace(-1, 1, 5).unsqueeze(1).to(device)
             combined = torch.cat([cl, cd, cm, max_thickness], dim=1)
             sampled_images = diffusion.sample(batch_size=5, conditioning=combined)
             save_images_conditional(sampled_images, airfoil_x, os.path.join("results", args.run_name, f"{epoch}.jpg"), combined)
@@ -181,7 +181,7 @@ def train(args):
 def launch():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--run_name', type=str, default="lucid_all_normalized_run_1")
+    parser.add_argument('--run_name', type=str, default="lucid_all_standardized_run_1")
     parser.add_argument('--epochs', type=int, default=5001)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--num_airfoil_points', type=int, default=100)

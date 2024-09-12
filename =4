@@ -1,0 +1,5 @@
+Collecting tqdm
+  Using cached tqdm-4.66.5-py3-none-any.whl.metadata (57 kB)
+Using cached tqdm-4.66.5-py3-none-any.whl (78 kB)
+Installing collected packages: tqdm
+Successfully installed tqdm-4.66.5
