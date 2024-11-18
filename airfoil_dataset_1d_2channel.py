@@ -179,7 +179,7 @@ def plot_airfoil(airfoil_x, airfoil):
 
 # Usage example
 if __name__ == '__main__':
-    airfoil_path = '/home/reid/Projects/Airfoil_Diffusion/denoising-diffusion-pytorch/coord_seligFmt'
+    airfoil_path = 'coord_seligFmt'
     dataset = AirfoilDataset(airfoil_path, num_points_per_side=100)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
     airfoil_x = dataset.get_x()

@@ -20,12 +20,12 @@ from scipy.interpolate import griddata
 from MakeDatasets import generate_airfoils_cd, generate_airfoils_cl, generate_airfoils_cl_cd, generate_airfoils_all, generate_airfoils_cl_thickness
 from tqdm import tqdm
 # Save paths for data
-pkl_save_path_cd = '/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/gen_airfoils_cd_standardized.pkl'
-pkl_save_path_cl = '/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/gen_airfoils_cl_standardized.pkl'
-pkl_save_path_cl_thickness = '/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/gen_airfoils_cl_thickness_standardized.pkl'
-pkl_save_path_cl_cd = '/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/gen_airfoils_cl_cd_standardized.pkl'
-pkl_save_path_all = '/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/gen_airfoils_all_standardized.pkl'
-uiuc_pkl_path = '/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/uiuc_airfoils.pkl'
+pkl_save_path_cd = 'gen_airfoils_cd_standardized.pkl'
+pkl_save_path_cl = 'gen_airfoils_cl_standardized.pkl'
+pkl_save_path_cl_thickness = 'gen_airfoils_cl_thickness_standardized.pkl'
+pkl_save_path_cl_cd = 'gen_airfoils_cl_cd_standardized.pkl'
+pkl_save_path_all = 'gen_airfoils_all_standardized.pkl'
+uiuc_pkl_path = 'uiuc_airfoils.pkl'
 
 # Load UIUC airfoil data
 if os.path.exists(uiuc_pkl_path):
@@ -60,7 +60,7 @@ if os.path.exists(uiuc_pkl_path):
         uiuc_max_thickness = uiuc_data['uiuc_max_thickness']
         uiuc_min_thickness = uiuc_data['uiuc_min_thickness']
 else:
-    uiuc_airfoil_path = '/home/reid/Projects/Airfoil_Diffusion/denoising-diffusion-pytorch/coord_seligFmt'
+    uiuc_airfoil_path = 'coord_seligFmt'
     uiuc_dataset = AirfoilDataset(uiuc_airfoil_path, num_points_per_side=100)
     uiuc_dataloader = DataLoader(uiuc_dataset, batch_size=1, shuffle=True)
 
@@ -156,12 +156,12 @@ print_uiuc_stats()
 print(f'shape of uiuc_coordinates_list: {uiuc_coordinates_list[0].shape}')
 
 # trained model paths
-vae_path = "/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/vae_epoch_200.pt"
-diffusion_path_cd = "/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/models/lucid_cd_standardized_run_1/best_model.pt"
-diffusion_path_cl = "/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/models/lucid_cl_standardized_run_1/best_model.pt"
-diffusion_path_cl_thickness = "/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/models/lucid_cl_thickness_standardized_run_1/best_model.pt"
-diffusion_path_cl_cd= "/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/models/lucid_cl_cd_standardized_run_1/best_model.pt"
-diffusion_path_all = "/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/models/lucid_all_standardized_run_1/best_model.pt"
+vae_path = "vae_epoch_200.pt"
+diffusion_path_cd = "models/lucid_cd_standardized_run_1/best_model.pt"
+diffusion_path_cl = "models/lucid_cl_standardized_run_1/best_model.pt"
+diffusion_path_cl_thickness = "models/lucid_cl_thickness_standardized_run_1/best_model.pt"
+diffusion_path_cl_cd= "models/lucid_cl_cd_standardized_run_1/best_model.pt"
+diffusion_path_all = "models/lucid_all_standardized_run_1/best_model.pt"
 
 
 
@@ -1116,8 +1116,8 @@ for i, coord in enumerate(uiuc_training_coordinates):
 # normalize uiuc_one_channel_coords
 
 
-cd_chamfer_pkl_path = "/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/cd_model_chamfer.pkl"
-cl_chamfer_pkl_path = "/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/cl_model_chamfer.pkl"
+cd_chamfer_pkl_path = "cd_model_chamfer.pkl"
+cl_chamfer_pkl_path = "cl_model_chamfer.pkl"
 # Calculate pairwise distances using CUDA
 
 if not os.path.exists(cd_chamfer_pkl_path):

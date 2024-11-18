@@ -16,9 +16,9 @@ import os
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 
-pkl_save_path = '/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/gen_airfoils_cd.pkl'
+pkl_save_path = 'gen_airfoils_cd.pkl'
 
-uiuc_pkl_path = '/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/uiuc_airfoils.pkl'
+uiuc_pkl_path = 'uiuc_airfoils.pkl'
 if os.path.exists(uiuc_pkl_path):
     print("Loading UIUC airfoils...")
     with open(uiuc_pkl_path, 'rb') as f:

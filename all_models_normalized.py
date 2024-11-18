@@ -215,10 +215,10 @@ else:
         models_to_generate.append('cd')
     if not os.path.exists(pkl_save_path_cl):
         models_to_generate.append('cl')
-    if not os.path.exists(pkl_save_path_cl_cd):
-        models_to_generate.append('cl_cd')
-    if not os.path.exists(pkl_save_path_all):
-        models_to_generate.append('all')
+   # if not os.path.exists(pkl_save_path_cl_cd):
+   #     models_to_generate.append('cl_cd')
+   # if not os.path.exists(pkl_save_path_all):
+   #     models_to_generate.append('all')
     for model in models_to_generate:
         if model == 'cd':
             print("Generating airfoils with CD conditioning...")
@@ -271,8 +271,8 @@ def make_boxplot_all(cl_error_list, cd_error_list, thickness_error_list, camber_
     ax.tick_params(axis='both', labelsize=tick_fontsize)
     plt.show()
 
-make_boxplot_cd(cd_model_conditioning_error_list)
-make_boxplot_cl(cl_model_conditioning_error_list)
+#make_boxplot_cd(cd_model_conditioning_error_list)
+#make_boxplot_cl(cl_model_conditioning_error_list)
 #make_boxplot_cl_cd(cl_cd_model_cl_error_list, cl_cd_model_cd_error_list)
 #make_boxplot_all(all_model_cl_error_list, all_model_cd_error_list, all_model_thickness_error_list, all_model_camber_error_list)
 
@@ -576,10 +576,10 @@ def make_combined_scatter_cl(cl_model_cl_conditioning_values, cl_model_eval_cl_v
 
 make_scatter_cd(cd_model_cd_conditioning_values, cd_model_cd_eval_values)
 make_scatter_cl(cl_model_cl_conditioning_values, cl_model_eval_cl_values)
-make_scatter_cl_cd(cl_cd_model_cl_conditioning_values, cl_cd_model_cd_conditioning_values, cl_cd_model_eval_cl_values, cl_cd_model_eval_cd_values)
-make_scatter_all(all_model_cl_conditioning_values, all_model_cd_conditioning_values, all_model_thickness_conditioning_values, all_model_camber_conditioning_values, all_model_cl_eval_values, all_model_cd_eval_values, all_model_thickness_eval_values, all_model_camber_eval_values)
-make_combined_scatter_cd(cd_model_cd_conditioning_values, cd_model_cd_eval_values, cl_cd_model_cd_conditioning_values, cl_cd_model_eval_cd_values, all_model_cd_conditioning_values, all_model_cd_eval_values)
-make_combined_scatter_cl(cl_model_cl_conditioning_values, cl_model_eval_cl_values, cl_cd_model_cl_conditioning_values, cl_cd_model_eval_cl_values, all_model_cl_conditioning_values, all_model_cl_eval_values)
+#make_scatter_cl_cd(cl_cd_model_cl_conditioning_values, cl_cd_model_cd_conditioning_values, cl_cd_model_eval_cl_values, cl_cd_model_eval_cd_values)
+#make_scatter_all(all_model_cl_conditioning_values, all_model_cd_conditioning_values, all_model_thickness_conditioning_values, all_model_camber_conditioning_values, all_model_cl_eval_values, all_model_cd_eval_values, all_model_thickness_eval_values, all_model_camber_eval_values)
+#make_combined_scatter_cd(cd_model_cd_conditioning_values, cd_model_cd_eval_values, cl_cd_model_cd_conditioning_values, cl_cd_model_eval_cd_values, all_model_cd_conditioning_values, all_model_cd_eval_values)
+#make_combined_scatter_cl(cl_model_cl_conditioning_values, cl_model_eval_cl_values, cl_cd_model_cl_conditioning_values, cl_cd_model_eval_cl_values, all_model_cl_conditioning_values, all_model_cl_eval_values)
 
 def condition_tsne(latent_vectors, conditioning_values, title, conditioning_label, title_fontsize=22, label_fontsize=20, tick_fontsize=18, boundary_thickness=2):
     latent_vectors = np.array(latent_vectors)
@@ -604,9 +604,9 @@ def condition_tsne(latent_vectors, conditioning_values, title, conditioning_labe
 # tsne for cd model
 condition_tsne(cd_model_latent_vectors, cd_model_cd_conditioning_values, "TSNE of Latent Vectors for CD Model", "CD Conditioning Values")
 condition_tsne(cl_model_latent_vectors, cl_model_cl_conditioning_values, "TSNE of Latent Vectors for CL Model", "CL Conditioning Values")
-condition_tsne(cl_cd_model_latent_vectors, cl_cd_model_cl_conditioning_values, "TSNE of Latent Vectors for CL-CD Model", "CL Conditioning Values")
-condition_tsne(cl_cd_model_latent_vectors, cl_cd_model_cd_conditioning_values, "TSNE of Latent Vectors for CL-CD Model", "CD Conditioning Values")
-condition_tsne(all_model_latent_vectors, all_model_cl_conditioning_values, "TSNE of Latent Vectors for All Model", "CL Conditioning Values")
-condition_tsne(all_model_latent_vectors, all_model_cd_conditioning_values, "TSNE of Latent Vectors for All Model", "CD Conditioning Values")
-condition_tsne(all_model_latent_vectors, all_model_thickness_conditioning_values, "TSNE of Latent Vectors for All Model", "Thickness Conditioning Values")
-condition_tsne(all_model_latent_vectors, all_model_camber_conditioning_values, "TSNE of Latent Vectors for All Model", "Camber Conditioning Values")
+#condition_tsne(cl_cd_model_latent_vectors, cl_cd_model_cl_conditioning_values, "TSNE of Latent Vectors for CL-CD Model", "CL Conditioning Values")
+#condition_tsne(cl_cd_model_latent_vectors, cl_cd_model_cd_conditioning_values, "TSNE of Latent Vectors for CL-CD Model", "CD Conditioning Values")
+#condition_tsne(all_model_latent_vectors, all_model_cl_conditioning_values, "TSNE of Latent Vectors for All Model", "CL Conditioning Values")
+#condition_tsne(all_model_latent_vectors, all_model_cd_conditioning_values, "TSNE of Latent Vectors for All Model", "CD Conditioning Values")
+#condition_tsne(all_model_latent_vectors, all_model_thickness_conditioning_values, "TSNE of Latent Vectors for All Model", "Thickness Conditioning Values")
+#condition_tsne(all_model_latent_vectors, all_model_camber_conditioning_values, "TSNE of Latent Vectors for All Model", "Camber Conditioning Values")

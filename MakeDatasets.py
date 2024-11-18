@@ -18,9 +18,9 @@ from sklearn.metrics import r2_score
 
 
 # load uiuc airfoil data
-uiuc_path = '/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/uiuc_airfoils.pkl'
+uiuc_path = 'uiuc_airfoils.pkl'
 if not os.path.exists(uiuc_path):
-    uiuc_airfoil_path = '/home/reid/Projects/Airfoil_Diffusion/denoising-diffusion-pytorch/coord_seligFmt'
+    uiuc_airfoil_path = 'coord_seligFmt'
     uiuc_dataset = AirfoilDataset(uiuc_airfoil_path, num_points_per_side=100)
     uiuc_dataloader = DataLoader(uiuc_dataset, batch_size=1, shuffle=True)
 
@@ -191,13 +191,13 @@ def generate_airfoils_cd(vae_path, diffusion_path, pkl_save_path, uiuc_cd_values
     diffusion = GaussianDiffusion1D(diffusion_model, seq_length=latent_dim).to(device)
 
     # Initialize dataset
-    airfoil_path = '/home/reid/Projects/Airfoil_Diffusion/denoising-diffusion-pytorch/coord_seligFmt'
+    airfoil_path = 'coord_seligFmt'
     dataset = AirfoilDataset(airfoil_path, num_points_per_side=100)
     airfoil_x = dataset.get_x()
 
     min_cd = min(uiuc_cd_values)
     max_cd = max(uiuc_cd_values)
-    cd_range = torch.linspace(min_cd, max_cd, 1000).unsqueeze(1).to(device)
+    cd_range = torch.linspace(min_cd, max_cd, 3000).unsqueeze(1).to(device)
 
     batch_size = 1000
     num_batches = len(cd_range) // batch_size
@@ -298,13 +298,13 @@ def generate_airfoils_cl(vae_path, diffusion_path, pkl_save_path, uiuc_cl_values
     diffusion = GaussianDiffusion1D(diffusion_model, seq_length=latent_dim).to(device)
 
     # Initialize dataset
-    airfoil_path = '/home/reid/Projects/Airfoil_Diffusion/denoising-diffusion-pytorch/coord_seligFmt'
+    airfoil_path = 'coord_seligFmt'
     dataset = AirfoilDataset(airfoil_path, num_points_per_side=100)
     airfoil_x = dataset.get_x()
 
     min_cl = min(uiuc_cl_values)
     max_cl = max(uiuc_cl_values)
-    cl_range = torch.linspace(min_cl, max_cl*2, 1000).unsqueeze(1).to(device)
+    cl_range = torch.linspace(min_cl, max_cl*2, 3000).unsqueeze(1).to(device)
 
     batch_size = 1000
     num_batches = len(cl_range) // batch_size
@@ -403,7 +403,7 @@ def generate_airfoils_cl_thickness(vae_path, diffusion_path, pkl_save_path, uiuc
     diffusion = GaussianDiffusion1D(diffusion_model, seq_length=latent_dim).to(device)
 
     # Initialize dataset
-    airfoil_path = '/home/reid/Projects/Airfoil_Diffusion/denoising-diffusion-pytorch/coord_seligFmt'
+    airfoil_path = 'coord_seligFmt'
     dataset = AirfoilDataset(airfoil_path, num_points_per_side=100)
     airfoil_x = dataset.get_x()
 
@@ -521,7 +521,7 @@ def generate_airfoils_cl_cd(vae_path, diffusion_path, pkl_save_path, uiuc_cl_val
     diffusion = GaussianDiffusion1D(diffusion_model, seq_length=latent_dim).to(device)
 
     # Initialize dataset
-    airfoil_path = '/home/reid/Projects/Airfoil_Diffusion/denoising-diffusion-pytorch/coord_seligFmt'
+    airfoil_path = 'coord_seligFmt'
     dataset = AirfoilDataset(airfoil_path, num_points_per_side=100)
     airfoil_x = dataset.get_x()
 
@@ -633,7 +633,7 @@ def generate_airfoils_all(vae_path, diffusion_path, pkl_save_path, uiuc_cl_value
     diffusion = GaussianDiffusion1D(diffusion_model, seq_length=latent_dim).to(device)
 
     # Initialize dataset
-    airfoil_path = '/home/reid/Projects/Airfoil_Diffusion/denoising-diffusion-pytorch/coord_seligFmt'
+    airfoil_path = 'coord_seligFmt'
     dataset = AirfoilDataset(airfoil_path, num_points_per_side=100)
     airfoil_x = dataset.get_x()
 
