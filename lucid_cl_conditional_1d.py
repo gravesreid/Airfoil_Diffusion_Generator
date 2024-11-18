@@ -21,7 +21,7 @@ import pickle
 logging.basicConfig(format="%(asctime)s - %(levelname)s: %(message)s", level=logging.INFO, datefmt="%I:%M:%S")
 
 # load uiuc airfoil data
-uiuc_path = '/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/uiuc_airfoils.pkl'
+uiuc_path = 'uiuc_airfoils.pkl'
 
 with open(uiuc_path, 'rb') as f:
     uiuc_data = pickle.load(f)
@@ -194,7 +194,7 @@ def launch():
     parser = argparse.ArgumentParser()
     parser.add_argument('--run_name', type=str, default="lucid_cl_standardized_run_1")
     parser.add_argument('--epochs', type=int, default=5001)
-    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--num_airfoil_points', type=int, default=100)
     parser.add_argument('--dataset_path', type=str, default="coord_seligFmt/")
     parser.add_argument('--device', type=str, default="cuda")

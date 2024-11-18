@@ -21,7 +21,7 @@ import pickle
 logging.basicConfig(format="%(asctime)s - %(levelname)s: %(message)s", level=logging.INFO, datefmt="%I:%M:%S")
 
 # load uiuc airfoil data
-uiuc_path = '/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/uiuc_airfoils.pkl'
+uiuc_path = 'uiuc_airfoils.pkl'
 
 with open(uiuc_path, 'rb') as f:
     uiuc_data = pickle.load(f)
@@ -101,9 +101,12 @@ def train(args):
             train_coords = airfoil['train_coords_y'].to(device).float()
             cd = airfoil['CD'].to(device).float().unsqueeze(1)
             cl = airfoil['CL'].to(device).float().unsqueeze(1)
-            # normalize cl and cd
-            cl = (cl - uiuc_min_cl) / (uiuc_max_cl - uiuc_min_cl)
-            cd = (cd - uiuc_min_cd) / (uiuc_max_cd - uiuc_min_cd)
+            # standardize cl and cd
+            cl = (cl - uiuc_cl_mean) / uiuc_cl_std
+            cd = (cd - uiuc_cd_mean) / uiuc_cd_std
+            ## normalize cl and cd
+            #cl = (cl - uiuc_min_cl) / (uiuc_max_cl - uiuc_min_cl)
+            #cd = (cd - uiuc_min_cd) / (uiuc_max_cd - uiuc_min_cd)
             # shift mean away from 0
             cl = cl + 1
             cd = cd + 1
@@ -189,7 +192,7 @@ def train(args):
 def launch():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--run_name', type=str, default="lucid_cd_normalized_run_1")
+    parser.add_argument('--run_name', type=str, default="lucid_cd_standardized_run_1")
     parser.add_argument('--epochs', type=int, default=5001)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--num_airfoil_points', type=int, default=100)
