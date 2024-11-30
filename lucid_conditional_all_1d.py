@@ -31,7 +31,7 @@ def standardize_conditioning_values(conditioning_values, mean_values, std_values
     return standardized_conditioning_values
 
 # load uiuc airfoil data
-uiuc_path = '/home/reid/Projects/Airfoil_Diffusion/conditional_airfoil_diffusion/uiuc_airfoils.pkl'
+uiuc_path = 'uiuc_airfoils.pkl'
 
 with open(uiuc_path, 'rb') as f:
     uiuc_data = pickle.load(f)
@@ -43,6 +43,14 @@ with open(uiuc_path, 'rb') as f:
     uiuc_max_cd = uiuc_data['uiuc_max_cd']
     uiuc_min_cl = uiuc_data['uiuc_min_cl']
     uiuc_min_cd = uiuc_data['uiuc_min_cd']
+    uiuc_thickness_mean = uiuc_data['uiuc_max_thickness_mean']
+    uiuc_thickness_std = uiuc_data['uiuc_max_thickness_std']
+    uiuc_max_thickness = uiuc_data['uiuc_max_thickness']
+    uiuc_min_thickness = uiuc_data['uiuc_min_thickness']
+    uiuc_max_camber_mean = uiuc_data['uiuc_max_camber_mean']
+    uiuc_max_camber_std = uiuc_data['uiuc_max_camber_std']
+    uiuc_max_camber = uiuc_data['uiuc_max_camber']
+    uiuc_min_camber = uiuc_data['uiuc_min_camber']
 
 def train(args):
     setup_logging(args.run_name)
@@ -51,7 +59,7 @@ def train(args):
     dataset = AirfoilDataset(args.dataset_path, num_points_per_side=args.num_airfoil_points)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-    model = Unet1DConditional(12, cond_dim=4, dim_mults=(1, 2, 4), channels=2, dropout=0.).to(device)
+    model = Unet1DConditional(12, cond_dim=3, dim_mults=(1, 2, 4), channels=2, dropout=0.).to(device)
 
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.75, patience=10, verbose=True)
@@ -83,20 +91,21 @@ def train(args):
         for i, airfoil in enumerate(pbar):
             train_coords = airfoil['train_coords_y'].to(device).float()
             cl = airfoil['CL'].to(device).float().unsqueeze(1)
-            cd = airfoil['CD'].to(device).float().unsqueeze(1)
             max_camber = airfoil['max_camber'].to(device).float().unsqueeze(1)
             max_thickness = airfoil['max_thickness'].to(device).float().unsqueeze(1)
             # normalize the conditioning
-            #cl = normalize_conditioning_values(cl, uiuc_min_cl, uiuc_max_cl)
-            #cd = normalize_conditioning_values(cd, uiuc_min_cd, uiuc_max_cd)
-            #max_camber = normalize_conditioning_values(max_camber, uiuc_min_cl, uiuc_max_cl)
-            #max_thickness = normalize_conditioning_values(max_thickness, uiuc_min_cl, uiuc_max_cl)
+            #cl = normalize_conditioning_values(cl, uiuc_min_cl.to(device), uiuc_max_cl.to(device))
+            #max_camber = normalize_conditioning_values(max_camber, uiuc_min_camber.to(device), uiuc_max_camber.to(device))
+            #max_thickness = normalize_conditioning_values(max_thickness, uiuc_min_thickness.to(device), uiuc_max_thickness.to(device))
             # standardize the conditioning
             cl = standardize_conditioning_values(cl, uiuc_cl_mean, uiuc_cl_std)
-            cd = standardize_conditioning_values(cd, uiuc_cd_mean, uiuc_cd_std)
             max_camber = standardize_conditioning_values(max_camber, uiuc_cl_mean, uiuc_cl_std)
             max_thickness = standardize_conditioning_values(max_thickness, uiuc_cl_mean, uiuc_cl_std)
-            conditioning = torch.cat([cl, cd, max_camber, max_thickness], dim=1)
+            # shift mean away from 0
+            cl = cl + 2
+            max_camber = max_camber + 2
+            max_thickness = max_thickness + 2
+            conditioning = torch.cat([cl, max_camber, max_thickness], dim=1).float()
 
             # Pass train coords through VAE
             t = torch.randint(0, diffusion.num_timesteps, (train_coords.shape[0],), device=device).long()
@@ -105,9 +114,12 @@ def train(args):
 
             if torch.rand(1).item() < .2:
                 cl = None
+                max_camber = None
+                max_thickness = None
+
 
             predicted_noise = diffusion.model(x_t, t, conditioning=conditioning)
-            cl_error = l1(noise, predicted_noise)
+            error = l1(noise, predicted_noise)
 
             # Optionally calculate CL error if CL is provided
             '''
@@ -117,19 +129,19 @@ def train(args):
             '''
 
             optimizer.zero_grad()
-            cl_error.backward()
+            error.backward()
             optimizer.step()
 
-            epoch_loss += cl_error.item()
+            epoch_loss += error.item()
 
             current_lr = optimizer.param_groups[0]['lr']
-            pbar.set_postfix(epoch_loss=cl_error.item(), learning_rate=current_lr)
+            pbar.set_postfix(epoch_loss=error.item(), learning_rate=current_lr)
             wandb.log({
-                "Batch Loss": cl_error.item(),
+                "Batch Loss": error.item(),
                 "Learning Rate": current_lr,
                 "Epoch": epoch
             })
-            logger.add_scalar(f"loss: {epoch}", cl_error.item(), global_step=epoch * l + i)
+            logger.add_scalar(f"loss: {epoch}", error.item(), global_step=epoch * l + i)
             logger.add_scalar("learning_rate", current_lr, global_step=epoch * l + i)
 
         epoch_loss /= len(dataloader)
@@ -152,11 +164,10 @@ def train(args):
         logging.info(f"Epoch {epoch} completed. Learning rate: {current_lr}, epochs no improvement: {epochs_no_improve}, best loss: {best_loss}")
 
         if epoch % 100 == 0:
-            cl = torch.linspace(-1, 1, 5).unsqueeze(1).to(device)
-            cd = torch.linspace(-1, 1, 5).unsqueeze(1).to(device)
-            cm = torch.linspace(-1, 1, 5).unsqueeze(1).to(device)
-            max_thickness = torch.linspace(-1, 1, 5).unsqueeze(1).to(device)
-            combined = torch.cat([cl, cd, cm, max_thickness], dim=1)
+            cl = torch.linspace(0, 2, 5).unsqueeze(1).to(device)
+            cm = torch.linspace(0, 1, 5).unsqueeze(1).to(device)
+            max_thickness = torch.linspace(0, 5, 5).unsqueeze(1).to(device)
+            combined = torch.cat([cl, cm, max_thickness], dim=1)
             sampled_images = diffusion.sample(batch_size=5, conditioning=combined)
             save_images_conditional(sampled_images, airfoil_x, os.path.join("results", args.run_name, f"{epoch}.jpg"), combined)
             torch.save(model.state_dict(), os.path.join("models", args.run_name, f"ckpt.pt"))

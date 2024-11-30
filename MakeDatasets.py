@@ -44,6 +44,7 @@ if not os.path.exists(uiuc_path):
         max_camber = uiuc_airfoil['max_camber']
         uiuc_max_camber.append(max_camber)
         max_thickness = uiuc_airfoil['max_thickness']
+        print(f'max_thickness: {max_thickness}')
         uiuc_max_thickness.append(max_thickness)
         name = uiuc_airfoil['name']
         uiuc_names.append(name)
@@ -66,10 +67,10 @@ if not os.path.exists(uiuc_path):
     uiuc_min_cl = min(uiuc_cl_values)
     uiuc_max_cd = max(uiuc_cd_values)
     uiuc_min_cd = min(uiuc_cd_values)
-    uiuc_max_camber = max(uiuc_max_camber)
-    uiuc_min_camber = min(uiuc_max_camber)
-    uiuc_max_thickness = max(uiuc_max_thickness)
-    uiuc_min_thickness = min(uiuc_max_thickness)
+    uiuc_max_max_camber = max(uiuc_max_camber)
+    uiuc_min_max_camber = min(uiuc_max_camber)
+    uiuc_max_max_thickness = max(uiuc_max_thickness)
+    uiuc_min_max_thickness = min(uiuc_max_thickness)
     uiuc_data_to_save = {
         'uiuc_coordinates': uiuc_coordinates_list,
         'uiuc_training_coordinates': uiuc_training_coordinates_list,
@@ -94,10 +95,10 @@ if not os.path.exists(uiuc_path):
         'uiuc_min_cl': uiuc_min_cl,
         'uiuc_max_cd': uiuc_max_cd,
         'uiuc_min_cd': uiuc_min_cd,
-        'uiuc_max_camber': uiuc_max_camber,
-        'uiuc_min_camber': uiuc_min_camber,
-        'uiuc_max_thickness': uiuc_max_thickness,
-        'uiuc_min_thickness': uiuc_min_thickness
+        'uiuc_max_camber': uiuc_max_max_camber,
+        'uiuc_min_camber': uiuc_min_max_camber,
+        'uiuc_max_thickness': uiuc_max_max_thickness,
+        'uiuc_min_thickness': uiuc_min_max_thickness
     }
     with open(uiuc_path, 'wb') as f:
         pickle.dump(uiuc_data_to_save, f)
@@ -408,7 +409,7 @@ def generate_airfoils_cl_thickness(vae_path, diffusion_path, pkl_save_path, uiuc
     airfoil_x = dataset.get_x()
 
     cl_range = torch.linspace(min(uiuc_cl_values), max(uiuc_cl_values)*2, 100).unsqueeze(1).to(device)
-    thickness_range = torch.linspace(min(uiuc_thickness_values), max(uiuc_thickness_values)*2, 100).unsqueeze(1).to(device)
+    thickness_range = torch.linspace(min(uiuc_thickness_values), max(uiuc_thickness_values)*4, 100).unsqueeze(1).to(device)
 
     # Create all combinations of CL and thickness
     cl_thickness_combinations = torch.cartesian_prod(cl_range.squeeze(), thickness_range.squeeze()).to(device)

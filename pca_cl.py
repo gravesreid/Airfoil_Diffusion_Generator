@@ -268,7 +268,7 @@ uiuc_pca_result = pca_2.fit_transform(uiuc_airfoil_matrix)
 
 # Plot the PCA results for both generated and UIUC airfoils
 sc2 = axs.scatter(pca_result[:, 0], pca_result[:, 1], c='blue', marker='o', label='Generated Airfoils', alpha=0.5)
-axs.scatter(uiuc_pca_result[:, 0], uiuc_pca_result[:, 1], c='red', marker='x', label='UIUC Airfoils', alpha=0.5)
+axs.scatter(uiuc_pca_result[:, 0], uiuc_pca_result[:, 1], c='red', marker='o', label='UIUC Airfoils', alpha=0.5)
 axs.set_xlabel('Principal Component 1')
 axs.set_ylabel('Principal Component 2')
 axs.set_title('PCA Comparison of Generated and UIUC Airfoils')

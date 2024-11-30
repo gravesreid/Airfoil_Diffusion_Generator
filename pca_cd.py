@@ -280,3 +280,20 @@ axs.set_title('PCA Comparison of Generated and UIUC Airfoils')
 axs.legend()
 
 plt.show()
+
+# try 3D PCA
+pca_3 = PCA(n_components=3, whiten=True, random_state=42, svd_solver='full', power_iteration_normalizer='LU')
+pca_result_3 = pca_3.fit_transform(airfoil_matrix)
+pca_3_uiuc = PCA(n_components=3, whiten=True, random_state=42, svd_solver='full', power_iteration_normalizer='LU')
+uiuc_pca_result_3 = pca_3_uiuc.fit_transform(uiuc_airfoil_matrix)
+
+fig = plt.figure(figsize=(8, 6))
+ax = fig.add_subplot(111, projection='3d')
+sc3 = ax.scatter(pca_result_3[:, 0], pca_result_3[:, 1], pca_result_3[:, 2], c='blue', marker='o', label='Generated Airfoils', alpha=0.5)
+ax.scatter(uiuc_pca_result_3[:, 0], uiuc_pca_result_3[:, 1], uiuc_pca_result_3[:, 2], c='red', marker='x', label='UIUC Airfoils', alpha=0.5)
+ax.set_xlabel('Principal Component 1')
+ax.set_ylabel('Principal Component 2')
+ax.set_zlabel('Principal Component 3')
+ax.set_title('3D PCA Comparison of Generated and UIUC Airfoils')
+ax.legend()
+plt.show()
